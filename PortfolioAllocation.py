@@ -53,25 +53,25 @@ def input_numbers():
 
     # current data
     starting_portfolio = np.array([20707.55, 7907.71, 10619.15, 20903.02, 3339.06, 3382.69])
-    cash_schwab = 1572.49
-    cash_vanguard = 1863.56
+    cash_schwab = 1572.49 / 3
+    cash_vanguard = 1863.56 / 3
     prices_schwab = np.array([72.15, 37.67, 54.45, 165.25, 16.53, 17.90])
     prices_vanguard = np.array([153.71, 37.67, 54.54, 165.25, -1.00, 119.00])
 
     # output shares
-    shares_allocation_schwab, shares_allocation_vanguard = get_allocations(starting_portfolio, goal_proportions,
+    shares_schwab, shares_vanguard = get_allocations(starting_portfolio, goal_proportions,
                                                                            cash_schwab, cash_vanguard, prices_schwab,
                                                                            prices_vanguard)
-    increase_schwab = shares_allocation_schwab * prices_schwab
-    increase_vanguard = shares_allocation_vanguard * prices_vanguard
+    increase_schwab = shares_schwab * prices_schwab
+    increase_vanguard = shares_vanguard * prices_vanguard
 
     # print results
     print("Goal proportions:       ", goal_proportions)
     print("Starting proportions:   ", get_proportions(starting_portfolio))
     print("Ending proportions:     ", get_proportions(starting_portfolio + increase_schwab + increase_vanguard))
-    print("Shares of Schwab:       ", shares_allocation_schwab)
+    print("Shares of Schwab:       ", shares_schwab)
     print("Schwab cash remaining:  ", round(cash_schwab - np.sum(increase_schwab), 2))
-    print("Shares of Vanguard:     ", shares_allocation_vanguard)
+    print("Shares of Vanguard:     ", shares_vanguard)
     print("Vanguard cash remaining:", round(cash_vanguard - np.sum(increase_vanguard), 2))
 
 
