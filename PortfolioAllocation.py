@@ -7,8 +7,8 @@ def get_allocations(starting_portfolio, ideal_allocation, cash_schwab, cash_vang
     cash_allocation_vanguard = get_cash_allocation(starting_portfolio, ideal_allocation, cash_vanguard, prices_vanguard)
 
     # how many shares to buy with cash
-    shares_allocation_schwab = get_shares_allocation(cash_allocation_schwab, prices_schwab)
-    shares_allocation_vanguard = get_shares_allocation(cash_allocation_vanguard, prices_vanguard)
+    shares_allocation_schwab = get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation_schwab, prices_schwab)
+    shares_allocation_vanguard = get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation_vanguard, prices_vanguard)
 
     return shares_allocation_schwab, shares_allocation_vanguard
 
@@ -32,10 +32,18 @@ def get_cash_allocation(portfolio, allocation, cash, prices):
     return np.round(proportion_totals * cash, 2)
 
 
-def get_shares_allocation(cash_allocation, prices):
-    shares, remainder = np.divmod(cash_allocation, prices)
+def get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation, prices):
+    shares_total = np.zeros(6)
 
-    return shares
+    while True:
+        shares, remainder = np.divmod(cash_allocation, prices)
+        if np.sum(shares) == 0:
+            break
+        else:
+            cash_allocation = get_cash_allocation(starting_portfolio, ideal_allocation, np.sum(remainder), prices)
+            shares_total += shares
+
+    return shares_total
 
 
 def get_proportions(arr):
@@ -52,11 +60,11 @@ def input_numbers():
     goal_proportions = np.array([0.18, 0.12, 0.15, 0.40, 0.075, 0.075])
 
     # current data
-    starting_portfolio = np.array([20707.55, 7907.71, 10619.15, 20903.02, 3339.06, 3382.69])
-    cash_schwab = 1572.49 / 3
-    cash_vanguard = 1863.56 / 3
-    prices_schwab = np.array([72.15, 37.67, 54.45, 165.25, 16.53, 17.90])
-    prices_vanguard = np.array([153.71, 37.67, 54.54, 165.25, -1.00, 119.00])
+    starting_portfolio = np.array([1, 1, 1, 1, 1, 1])
+    cash_schwab = 1
+    cash_vanguard = 1
+    prices_schwab = np.array([1, 1, 1, 1, 1, 1])
+    prices_vanguard = np.array([1, 1, 1, 1, 1, 1])
 
     # output shares
     shares_schwab, shares_vanguard = get_allocations(starting_portfolio, goal_proportions,
