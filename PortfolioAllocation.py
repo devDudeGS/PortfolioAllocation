@@ -2,6 +2,9 @@ import numpy as np
 
 
 def get_allocations(starting_portfolio, ideal_allocation, cash_schwab, cash_vanguard, prices_schwab, prices_vanguard):
+    # ideal cash
+    ideal_cash_allocation = get_ideal_cash_allocation(starting_portfolio, ideal_allocation)
+
     # how much cash to allocate to each security
     cash_allocation_schwab = get_cash_allocation(starting_portfolio, ideal_allocation, cash_schwab, prices_schwab)
     cash_allocation_vanguard = get_cash_allocation(starting_portfolio, ideal_allocation, cash_vanguard, prices_vanguard)
@@ -10,7 +13,7 @@ def get_allocations(starting_portfolio, ideal_allocation, cash_schwab, cash_vang
     shares_allocation_schwab = get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation_schwab, prices_schwab)
     shares_allocation_vanguard = get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation_vanguard, prices_vanguard)
 
-    return shares_allocation_schwab, shares_allocation_vanguard
+    return shares_allocation_schwab, shares_allocation_vanguard, ideal_cash_allocation
 
 
 def get_cash_allocation(portfolio, allocation, cash, prices):
@@ -55,6 +58,16 @@ def get_proportions(arr):
     return np.round(proportions, 3)
 
 
+def get_ideal_cash_allocation(portfolio, allocation):
+    ideal_allocation_portfolio = allocation * np.sum(portfolio)
+    portfolio_diff = portfolio - ideal_allocation_portfolio
+    max_portfolio_value = portfolio[np.argmax(portfolio_diff)]
+    max_allocation_value = allocation[np.argmax(portfolio_diff)]
+    ideal_portfolio_total = max_portfolio_value / (max_allocation_value * 100) * 100
+
+    return np.round(ideal_portfolio_total - np.sum(portfolio), 2)
+
+
 def input_numbers():
     # percentages aiming for
     goal_proportions = np.array([0.18, 0.12, 0.15, 0.40, 0.075, 0.075])
@@ -67,7 +80,7 @@ def input_numbers():
     prices_vanguard = np.array([1, 1, 1, 1, 1, 1])
 
     # output shares
-    shares_schwab, shares_vanguard = get_allocations(starting_portfolio, goal_proportions,
+    shares_schwab, shares_vanguard, ideal_cash_allocation = get_allocations(starting_portfolio, goal_proportions,
                                                                            cash_schwab, cash_vanguard, prices_schwab,
                                                                            prices_vanguard)
     increase_schwab = shares_schwab * prices_schwab
@@ -81,6 +94,7 @@ def input_numbers():
     print("Schwab cash remaining:  ", round(cash_schwab - np.sum(increase_schwab), 2))
     print("Shares of Vanguard:     ", shares_vanguard)
     print("Vanguard cash remaining:", round(cash_vanguard - np.sum(increase_vanguard), 2))
+    print("Ideal cash addition:    ", ideal_cash_allocation)
 
 
 if __name__ == "__main__":
