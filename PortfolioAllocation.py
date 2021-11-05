@@ -70,7 +70,7 @@ def get_ideal_cash_allocation(portfolio, allocation):
 
 def input_numbers():
     # percentages aiming for
-    goal_proportions = np.array([0.18, 0.12, 0.15, 0.40, 0.075, 0.075])
+    goal_proportions = np.array([0.18, 0.08, 0.04, 0.15, 0.40, 0.075, 0.075])
 
     # current data
     starting_portfolio = np.array([1, 1, 1, 1, 1, 1])
