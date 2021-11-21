@@ -22,7 +22,7 @@ def get_cash_allocation(portfolio, allocation, cash, prices):
     diff_totals = portfolio - ideal_totals
 
     # create array of securities to add to
-    revised_totals = np.zeros(6)
+    revised_totals = np.zeros(7)
     for i in range(len(diff_totals)):
         if diff_totals[i] < 0 and prices[i] != -1.00:
             revised_totals[i] = diff_totals[i] * -1
@@ -36,7 +36,7 @@ def get_cash_allocation(portfolio, allocation, cash, prices):
 
 
 def get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation, prices):
-    shares_total = np.zeros(6)
+    shares_total = np.zeros(7)
 
     while True:
         shares, remainder = np.divmod(cash_allocation, prices)
@@ -73,11 +73,11 @@ def input_numbers():
     goal_proportions = np.array([0.18, 0.08, 0.04, 0.15, 0.40, 0.075, 0.075])
 
     # current data
-    starting_portfolio = np.array([1, 1, 1, 1, 1, 1])
+    starting_portfolio = np.array([1, 1, 1, 1, 1, 1, 1])
     cash_schwab = 1
     cash_vanguard = 1
-    prices_schwab = np.array([1, 1, 1, 1, 1, 1])
-    prices_vanguard = np.array([1, 1, 1, 1, 1, 1])
+    prices_schwab = np.array([1, 1, 1, 1, 1, 1, 1])
+    prices_vanguard = np.array([1, 1, 1, 1, 1, -1.00, 1])
 
     # output shares
     shares_schwab, shares_vanguard, ideal_cash_allocation = get_allocations(starting_portfolio, goal_proportions,
