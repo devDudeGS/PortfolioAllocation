@@ -11,7 +11,7 @@ def analyze_data():
     all_data_df = clean_data(all_data)
 
     previous_months_to_analyze = 12 * 2
-    #graph_budgeting_data(all_data_df, previous_months_to_analyze)
+    graph_budgeting_data(all_data_df, previous_months_to_analyze)
 
 
 def get_data():
@@ -67,50 +67,11 @@ def get_dates_and_headers(data):
     return dates, headers
 
 
-def graph_budgeting_data(data):
-    # dates, headers = get_dates_and_headers(data)
-    # print(headers, dates)
+def graph_budgeting_data(data, previous_months_to_analyze):
+    # Select columns between two headers during time period
+    df = data.loc[:, 'budgeting_gas':'budgeting_apps'].tail(previous_months_to_analyze)
 
-    # get column number for header with name 'budgeting_gas'
-    budgeting_gas_column = get_column_number(data, 'budgeting_gas')
-    budgeting_apps_column = get_column_number(data, 'budgeting_apps')
-
-    # get data between budgeting_gas and budgeting_apps
-    full_data = data[:, budgeting_gas_column:budgeting_apps_column]
-    # full_data = [row[budgeting_gas_column:budgeting_apps_column] for row in data]
-
-    # rotate data so that each row is a column
-    full_data = np.rot90(full_data)
-
-    # take the last 24 numbers in each column
-    #data = [row[-24:] for row in full_data]
-
-    # take the last 24 rows in each column that are not empty string
-    recent_data = []
-    for row in full_data:
-        row = row[-24:]
-        row = [element for element in row if element != '']
-        recent_data.append(row)
-
-
-    # get last 24 rows of data between budgeting_gas and budgeting_apps
-    # data = data[-24:]
-    # data = [row[budgeting_gas_column:budgeting_apps_column] for row in data]
-
-    # convert data to float
-    data = [[float(element) for element in row] for row in recent_data]
-    # graph data using pandas
-    df = pd.DataFrame(data, columns=['Gas', 'Groceries', 'Eating Out', 'Shopping', 'Living Expenses', 'Gifts', 'Travel',
-                                     'Kids', 'Apps'])
     df.plot()
-
-
-def get_column_number(data, param):
-    # get column number in data for header with name 'param'
-    headers = data[0]
-    for i in range(len(headers)):
-        if headers[i] == param:
-            return i
 
 
 if __name__ == "__main__":
