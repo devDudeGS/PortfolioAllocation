@@ -165,7 +165,7 @@ dmypy.json
 # .idea/compiler.xml
 # .idea/jarRepositories.xml
 # .idea/modules.xml
-# .idea/*.iml
+ .idea/*.iml
 # .idea/modules
 # *.iml
 # *.ipr
@@ -202,3 +202,6 @@ fabric.properties
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
+
+# data source files
+data/
