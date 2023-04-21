@@ -206,3 +206,4 @@ fabric.properties
 
 # data source files
 data/
+graphs/

@@ -69,9 +69,20 @@ def get_dates_and_headers(data):
 
 def graph_budgeting_data(data, previous_months_to_analyze):
     # Select columns between two headers during time period
-    df = data.loc[:, 'budgeting_gas':'budgeting_apps'].tail(previous_months_to_analyze)
+    df = data.loc[:, 'budgeting_gas':'budgeting_kids'].tail(previous_months_to_analyze)
 
-    df.plot()
+    # Create a line plot of the data
+    plt.close('all')
+    plt.title('Budgeting Data')
+    plt.xlabel('Month')
+    plt.ylabel('Spent')
+    plt.grid()
+    plt.plot(df)
+    plt.legend(df.columns, loc="best")
+    plt.xticks(rotation=45)
+
+    # save the graph
+    plt.savefig("graphs/BudgetingData.png")
 
 
 if __name__ == "__main__":
