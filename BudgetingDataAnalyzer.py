@@ -11,7 +11,7 @@ def analyze_data():
     all_data_df = clean_data(all_data)
 
     previous_months_to_analyze = 12 * 2
-    graph_budgeting_data(all_data_df, previous_months_to_analyze)
+    graph_data(all_data_df, previous_months_to_analyze)
 
 
 def get_data():
@@ -67,22 +67,66 @@ def get_dates_and_headers(data):
     return dates, headers
 
 
-def graph_budgeting_data(data, previous_months_to_analyze):
+def graph_data(data, previous_months_to_analyze):
+    graph_budgeting_data(data, previous_months_to_analyze)
+    graph_salary_data(data)
+    graph_monthly_income_data(data)
+
+
+def plot_and_save(column_1, column_2, data, file_name, previous_months_to_analyze, title, x_label, y_label):
     # Select columns between two headers during time period
-    df = data.loc[:, 'budgeting_gas':'budgeting_kids'].tail(previous_months_to_analyze)
+    df = data.loc[:, column_1:column_2]
+    if previous_months_to_analyze > 0:
+        df = df.tail(previous_months_to_analyze)
 
     # Create a line plot of the data
     plt.close('all')
-    plt.title('Budgeting Data')
-    plt.xlabel('Month')
-    plt.ylabel('Spent')
+    plt.title(title)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
     plt.grid()
     plt.plot(df)
     plt.legend(df.columns, loc="best")
     plt.xticks(rotation=45)
 
     # save the graph
-    plt.savefig("graphs/BudgetingData.png")
+    plt.savefig("graphs/" + file_name)
+
+
+def graph_budgeting_data(data, previous_months_to_analyze):
+    column_1 = 'budgeting_gas'
+    column_2 = 'budgeting_kids'
+    title = 'Budgeting Data'
+    x_label = 'Month'
+    y_label = 'Spent'
+    file_name = 'BudgetingData.png'
+
+    plot_and_save(column_1, column_2, data, file_name, previous_months_to_analyze,
+                  title, x_label, y_label)
+
+
+def graph_salary_data(data):
+    column_1 = 'annual_gross_pay_g'
+    column_2 = 'annual_gross_pay_j'
+    title = 'Salary Data'
+    x_label = 'Time'
+    y_label = 'Annual Salary'
+    file_name = 'SalaryData.png'
+
+    plot_and_save(column_1, column_2, data, file_name, 0,
+                  title, x_label, y_label)
+
+
+def graph_monthly_income_data(data):
+    column_1 = 'income_total'
+    column_2 = 'income_total'
+    title = 'Monthly Income Data'
+    x_label = 'Time'
+    y_label = 'Earnings'
+    file_name = 'MonthlyIncomeData.png'
+
+    plot_and_save(column_1, column_2, data, file_name, 0,
+                  title, x_label, y_label)
 
 
 if __name__ == "__main__":
