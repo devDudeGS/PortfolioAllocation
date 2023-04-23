@@ -1,19 +1,21 @@
+import csv
+
 import numpy as np
 
 
-def get_allocations(starting_portfolio, ideal_allocation, cash_schwab, cash_vanguard, prices_schwab, prices_vanguard):
+def get_allocations(starting_portfolio, ideal_allocation, cash_ira_g, cash_ira_j, prices_ira_g, prices_ira_j):
     # ideal cash
     ideal_cash_allocation = get_ideal_cash_allocation(starting_portfolio, ideal_allocation)
 
     # how much cash to allocate to each security
-    cash_allocation_schwab = get_cash_allocation(starting_portfolio, ideal_allocation, cash_schwab, prices_schwab)
-    cash_allocation_vanguard = get_cash_allocation(starting_portfolio, ideal_allocation, cash_vanguard, prices_vanguard)
+    cash_allocation_ira_g = get_cash_allocation(starting_portfolio, ideal_allocation, cash_ira_g, prices_ira_g)
+    cash_allocation_ira_j = get_cash_allocation(starting_portfolio, ideal_allocation, cash_ira_j, prices_ira_j)
 
     # how many shares to buy with cash
-    shares_allocation_schwab = get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation_schwab, prices_schwab)
-    shares_allocation_vanguard = get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation_vanguard, prices_vanguard)
+    shares_allocation_ira_g = get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation_ira_g, prices_ira_g)
+    shares_allocation_ira_j = get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation_ira_j, prices_ira_j)
 
-    return shares_allocation_schwab, shares_allocation_vanguard, ideal_cash_allocation
+    return shares_allocation_ira_g, shares_allocation_ira_j, ideal_cash_allocation
 
 
 def get_cash_allocation(portfolio, allocation, cash, prices):
@@ -68,34 +70,76 @@ def get_ideal_cash_allocation(portfolio, allocation):
     return np.round(ideal_portfolio_total - np.sum(portfolio), 2)
 
 
-def input_numbers():
+def input_numbers(all_data_np):
     # percentages aiming for
-    goal_proportions = np.array([0.18, 0.08, 0.04, 0.15, 0.40, 0.075, 0.075])
+    goal_proportions = all_data_np[1:8, 1]
+    goal_proportions = goal_proportions.astype(np.float)
 
     # current data
-    starting_portfolio = np.array([1, 1, 1, 1, 1, 1, 1])
-    cash_schwab = 1
-    cash_vanguard = 1
-    prices_schwab = np.array([1, 1, 1, 1, 1, 1, 1])
-    prices_vanguard = np.array([1, 1, 1, 1, 1, -1.00, 1])
+    security_type_1 = all_data_np[1, 2:6]
+    security_type_1 = security_type_1.astype(np.float)
+    security_type_1_sum = np.round(np.sum(security_type_1), 2)
+    security_type_2 = all_data_np[2, 2:6]
+    security_type_2 = security_type_2.astype(np.float)
+    security_type_2_sum = np.round(np.sum(security_type_2), 2)
+    security_type_3 = all_data_np[3, 2:6]
+    security_type_3 = security_type_3.astype(np.float)
+    security_type_3_sum = np.round(np.sum(security_type_3), 2)
+    security_type_4 = all_data_np[4, 2:6]
+    security_type_4 = security_type_4.astype(np.float)
+    security_type_4_sum = np.round(np.sum(security_type_4), 2)
+    security_type_5 = all_data_np[5, 2:6]
+    security_type_5 = security_type_5.astype(np.float)
+    security_type_5_sum = np.round(np.sum(security_type_5), 2)
+    security_type_6 = all_data_np[6, 2:6]
+    security_type_6 = security_type_6.astype(np.float)
+    security_type_6_sum = np.round(np.sum(security_type_6), 2)
+    security_type_7 = all_data_np[7, 2:6]
+    security_type_7 = security_type_7.astype(np.float)
+    security_type_7_sum = np.round(np.sum(security_type_7), 2)
+    starting_portfolio = np.array([security_type_1_sum, security_type_2_sum, security_type_3_sum, security_type_4_sum,
+                                   security_type_5_sum, security_type_6_sum, security_type_7_sum])
+
+    cash_ira_g = float(all_data_np[8][2])
+    cash_ira_j = float(all_data_np[8][3])
+
+    ira_prices_g = all_data_np[1:8, 6]
+    ira_prices_g = ira_prices_g.astype(np.float)
+    ira_prices_j = all_data_np[1:8, 7]
+    ira_prices_j = ira_prices_j.astype(np.float)
 
     # output shares
-    shares_schwab, shares_vanguard, ideal_cash_allocation = get_allocations(starting_portfolio, goal_proportions,
-                                                                           cash_schwab, cash_vanguard, prices_schwab,
-                                                                           prices_vanguard)
-    increase_schwab = shares_schwab * prices_schwab
-    increase_vanguard = shares_vanguard * prices_vanguard
+    shares_ira_g, shares_ira_j, ideal_cash_allocation = get_allocations(starting_portfolio, goal_proportions,
+                                                                           cash_ira_g, cash_ira_j, ira_prices_g,
+                                                                           ira_prices_j)
+    increase_ira_g = shares_ira_g * ira_prices_g
+    increase_ira_j = shares_ira_j * ira_prices_j
 
     # print results
     print("Goal proportions:       ", goal_proportions)
     print("Starting proportions:   ", get_proportions(starting_portfolio))
-    print("Ending proportions:     ", get_proportions(starting_portfolio + increase_schwab + increase_vanguard))
-    print("Shares of Schwab:       ", shares_schwab)
-    print("Schwab cash remaining:  ", round(cash_schwab - np.sum(increase_schwab), 2))
-    print("Shares of Vanguard:     ", shares_vanguard)
-    print("Vanguard cash remaining:", round(cash_vanguard - np.sum(increase_vanguard), 2))
+    print("Ending proportions:     ", get_proportions(starting_portfolio + increase_ira_g + increase_ira_j))
+    print("G's IRA cash start:      ", round(cash_ira_g, 2))
+    print("Shares of G's IRA:       ", shares_ira_g)
+    print("G's IRA cash remaining:  ", round(cash_ira_g - np.sum(increase_ira_g), 2))
+    print("J's IRA cash start:    ", round(cash_ira_j, 2))
+    print("Shares of J's IRA:     ", shares_ira_j)
+    print("J's IRA cash remaining:", round(cash_ira_j - np.sum(increase_ira_j), 2))
     print("Ideal cash addition:    ", ideal_cash_allocation)
 
 
+def get_data():
+    with open("data/RetirementData.csv", "r") as file:
+        reader = csv.reader(file)
+        data = list(reader)
+
+    return np.array(data)
+
+
+def balance_iras():
+    all_data_np = get_data()
+    input_numbers(all_data_np)
+
+
 if __name__ == "__main__":
-    input_numbers()
+    balance_iras()
