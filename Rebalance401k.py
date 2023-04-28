@@ -1,3 +1,5 @@
+import csv
+
 import numpy as np
 
 
@@ -92,6 +94,7 @@ def get_absolute_proportions(portfolio_proportions, new_goal_proportions, all_ac
                 else:
                     this_acct_absolutes[j] = 0
         print("account sum: ", np.sum(this_acct_absolutes))
+        print("account breakdown $$: ", np.round(this_acct_absolutes, 2))
         this_acct_absolutes = this_acct_absolutes / retirement_total * 100
         all_acct_absolute.append(this_acct_absolutes)
 
@@ -147,20 +150,30 @@ def get_proportions(arr):
     return np.round(proportions, 3)
 
 
-def input_numbers():
+def input_numbers(all_data_np):
     # percentages aiming for
-    goal_proportions = np.array([0.18, 0.08, 0.04, 0.15])
+    goal_proportions = all_data_np[1:5, 1]
+    goal_proportions = goal_proportions.astype(np.float)
 
     # 1. Input: total of all $$ in all retirement accounts
-    retirement_total = 100
+    retirement_total = all_data_np[1:9, 2:6]
+    retirement_total = retirement_total.astype(np.float)
+    retirement_total = np.round(np.sum(retirement_total), 2)
 
     # 2. Input: current $$ totals in each 401k account
-    # principal_total = 1
-    # betterment_total = 1
-    # empower_total = 1
-    # prudential_total = 1
+    # g_401k_total = 1
+    # j_401k_total = 1
+    # old_401k_1_total = 1
+    # old_401k_2_total = 1
     # OR
-    portfolio_breakdown = np.array([5, 5, 5, 5])
+    portfolio_all_cats = all_data_np[1:5, 4:6]
+    portfolio_all_cats = portfolio_all_cats.astype(np.float)
+    portfolio_breakdown = np.sum(portfolio_all_cats, axis=0)
+
+    # TEMP while 4 accounts
+    zeros = np.ones(2)
+    portfolio_breakdown = np.concatenate((portfolio_breakdown, zeros), axis=0)
+    #portfolio_breakdown = np.array([6881.98, 30607.49, 9924.33, 12626.70])
 
     portfolio_total, portfolio_proportions, portfolio_proportion_of_total = get_totals(retirement_total,
                                                                                        portfolio_breakdown)
@@ -170,11 +183,24 @@ def input_numbers():
                                                                            retirement_total)
 
     # category participation
-    principal_cats = np.array([1, 1, 1, 1])
-    betterment_cats = np.array([1, 1, 1, 1])
-    empower_cats = np.array([1, 1, 1, 1])
-    prudential_cats = np.array([1, 0, 0, 1])
-    all_acct_cats = [principal_cats, betterment_cats, empower_cats, prudential_cats]
+    # Create an array of zeros with the same number of columns as the input array
+    output_arrays = np.zeros_like(portfolio_all_cats)
+
+    # Create separate arrays for each column of values
+    for i in range(portfolio_all_cats.shape[1]):
+        output_arrays[:, i] = np.where(portfolio_all_cats[:, i] > 0, 1, 0)
+    #output_arrays = np.reshape(output_arrays, (2, 4))
+    col1, col2 = np.split(output_arrays, 2, axis=1)
+
+    # g_401k_cats = np.array([1, 1, 1, 1])
+    # j_401k_cats = np.array([1, 0, 0, 1])
+    g_401k_cats = col1.flatten()
+    j_401k_cats = col2.flatten()
+    # old_401k_1_cats = np.array([1, 1, 1, 1])
+    # old_401k_2_cats = np.array([1, 1, 1, 1])
+    old_401k_1_cats = np.ones(4)
+    old_401k_2_cats = np.ones(4)
+    all_acct_cats = [g_401k_cats, j_401k_cats, old_401k_1_cats, old_401k_2_cats]
 
     all_acct_absolute = get_absolute_proportions(portfolio_proportions, new_goal_proportions, all_acct_cats,
                                                  expected_finals, retirement_total, portfolio_total, portfolio_breakdown)
@@ -205,33 +231,19 @@ def input_numbers():
     print(cat_3_total)
     print(cat_4_total)
 
-    # # percentages aiming for
-    # goal_proportions = np.array([0.18, 0.08, 0.04, 0.15, 0.40, 0.075, 0.075])
-    #
-    # # current data
-    # starting_portfolio = np.array([1, 1, 1, 1, 1, 1])
-    # cash_schwab = 1
-    # cash_vanguard = 1
-    # prices_schwab = np.array([1, 1, 1, 1, 1, 1])
-    # prices_vanguard = np.array([1, 1, 1, 1, 1, 1])
-    #
-    # # output shares
-    # shares_schwab, shares_vanguard, ideal_cash_allocation = get_allocations(starting_portfolio, goal_proportions,
-    #                                                                        cash_schwab, cash_vanguard, prices_schwab,
-    #                                                                        prices_vanguard)
-    # increase_schwab = shares_schwab * prices_schwab
-    # increase_vanguard = shares_vanguard * prices_vanguard
-    #
-    # # print results
-    # print("Goal proportions:       ", goal_proportions)
-    # print("Starting proportions:   ", get_proportions(starting_portfolio))
-    # print("Ending proportions:     ", get_proportions(starting_portfolio + increase_schwab + increase_vanguard))
-    # print("Shares of Schwab:       ", shares_schwab)
-    # print("Schwab cash remaining:  ", round(cash_schwab - np.sum(increase_schwab), 2))
-    # print("Shares of Vanguard:     ", shares_vanguard)
-    # print("Vanguard cash remaining:", round(cash_vanguard - np.sum(increase_vanguard), 2))
-    # print("Ideal cash addition:    ", ideal_cash_allocation)
+
+def get_data():
+    with open("data/RetirementData.csv", "r") as file:
+        reader = csv.reader(file)
+        data = list(reader)
+
+    return np.array(data)
+
+
+def balance_401ks():
+    all_data_np = get_data()
+    input_numbers(all_data_np)
 
 
 if __name__ == "__main__":
-    input_numbers()
+    balance_401ks()
