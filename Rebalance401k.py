@@ -173,7 +173,6 @@ def input_numbers(all_data_np):
     # TEMP while 4 accounts
     zeros = np.ones(2)
     portfolio_breakdown = np.concatenate((portfolio_breakdown, zeros), axis=0)
-    #portfolio_breakdown = np.array([6881.98, 30607.49, 9924.33, 12626.70])
 
     portfolio_total, portfolio_proportions, portfolio_proportion_of_total = get_totals(retirement_total,
                                                                                        portfolio_breakdown)
@@ -189,15 +188,10 @@ def input_numbers(all_data_np):
     # Create separate arrays for each column of values
     for i in range(portfolio_all_cats.shape[1]):
         output_arrays[:, i] = np.where(portfolio_all_cats[:, i] > 0, 1, 0)
-    #output_arrays = np.reshape(output_arrays, (2, 4))
     col1, col2 = np.split(output_arrays, 2, axis=1)
 
-    # g_401k_cats = np.array([1, 1, 1, 1])
-    # j_401k_cats = np.array([1, 0, 0, 1])
     g_401k_cats = col1.flatten()
     j_401k_cats = col2.flatten()
-    # old_401k_1_cats = np.array([1, 1, 1, 1])
-    # old_401k_2_cats = np.array([1, 1, 1, 1])
     old_401k_1_cats = np.ones(4)
     old_401k_2_cats = np.ones(4)
     all_acct_cats = [g_401k_cats, j_401k_cats, old_401k_1_cats, old_401k_2_cats]
