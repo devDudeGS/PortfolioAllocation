@@ -1,6 +1,54 @@
 import csv
-
 import numpy as np
+
+
+def balance_401ks():
+    all_data = get_data()
+    all_data_np, goal_proportions, retirement_total, portfolio_breakdown = clean_data(all_data)
+
+    allocation_percentages = get_allocation_percentages(goal_proportions, retirement_total, portfolio_breakdown)
+
+    input_numbers(all_data_np)
+
+
+def get_data():
+    with open("data/RetirementData.csv", "r") as file:
+        reader = csv.reader(file)
+        data = list(reader)
+
+    return data
+
+def clean_data(data):
+    all_data_np = np.array(data)
+
+    # proportions aiming for
+    goal_proportions = all_data_np[1:5, 1].astype(np.float)
+    print("Goal proportions: ", goal_proportions)
+    print()
+
+    # total in all retirement accounts
+    retirement_total = all_data_np[1:9, 2:6].astype(np.float)
+    retirement_total = np.round(np.sum(retirement_total), 2)
+    print("Retirement total: ", retirement_total)
+    print()
+
+    # 401k portfolio breakdown
+    portfolio_breakdown = all_data_np[1:5, 4:6].astype(np.float)
+    print("Portfolio all categories: ")
+    print(portfolio_breakdown)
+    portfolio_totals = np.sum(portfolio_breakdown, axis=0)
+    print("Portfolio totals: ")
+    print(portfolio_totals)
+    print()
+    print()
+
+    return all_data_np, goal_proportions, retirement_total, portfolio_breakdown
+
+
+def get_allocation_percentages(goal_proportions, retirement_total, portfolio_breakdown):
+    allocation_percentages = None
+
+    return allocation_percentages
 
 
 def get_totals(retirement_total, portfolio_breakdown):
@@ -222,19 +270,6 @@ def input_numbers(all_data_np):
     print(cat_2_total)
     print(cat_3_total)
     print(cat_4_total)
-
-
-def get_data():
-    with open("data/RetirementData.csv", "r") as file:
-        reader = csv.reader(file)
-        data = list(reader)
-
-    return np.array(data)
-
-
-def balance_401ks():
-    all_data_np = get_data()
-    input_numbers(all_data_np)
 
 
 if __name__ == "__main__":
