@@ -183,11 +183,9 @@ def input_numbers(all_data_np):
 
     # category participation
     # Create an array of zeros with the same number of columns as the input array
-    output_arrays = np.zeros_like(portfolio_all_cats)
+    output_arrays = np.where(portfolio_all_cats > 0, 1, 0)
 
     # Create separate arrays for each column of values
-    for i in range(portfolio_all_cats.shape[1]):
-        output_arrays[:, i] = np.where(portfolio_all_cats[:, i] > 0, 1, 0)
     col1, col2 = np.split(output_arrays, 2, axis=1)
 
     g_401k_cats = col1.flatten()
