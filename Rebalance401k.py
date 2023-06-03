@@ -3,9 +3,11 @@ import numpy as np
 
 
 def balance_401ks():
+    security_types_total = 7
+
     all_data = get_data()
     goal_proportions, portfolio_breakdown, portfolio_total = get_input_vars(
-        all_data)
+        all_data, security_types_total)
     target_amounts = get_targets(goal_proportions, portfolio_total)
     new_portfolio_breakdown = get_new_portfolio_breakdown(
         portfolio_breakdown, target_amounts)
@@ -13,6 +15,15 @@ def balance_401ks():
 
 
 def get_data():
+    """
+    Data in the format:
+
+    security_type,ideal_portfolio,ira_self,ira_spouse,401k_self,401k_spouse,ira_prices_self,ira_prices_spouse
+    type_1,0.20,100,100,100,100,50,50
+    type_2,0.15,100,100,100,0.00,50,50
+    type_3,0.30,100,100,100,0.00,50,50
+    etc,0.35,100,100,100,100,50,50
+    """
     with open("data/RetirementData.csv", "r") as file:
         reader = csv.reader(file)
         data = list(reader)
@@ -20,25 +31,25 @@ def get_data():
     return np.array(data)
 
 
-def get_input_vars(data):
-    print()
-
+def get_input_vars(data, security_types_total):
     # 401k portfolio breakdown
-    portfolio_breakdown = data[1:8, 4:6].astype(np.float)
+    final_row_index = security_types_total + 1
+    portfolio_breakdown = data[1:final_row_index, 4:6].astype(np.float)
     nonzero_rows = np.where(np.sum(portfolio_breakdown, axis=1) > 0)[0]
     portfolio_breakdown = portfolio_breakdown[nonzero_rows]  # type: ignore
-    print("Portfolio all categories: ")
+    print()
+    print("Portfolio breakdown: ")
     print(portfolio_breakdown)
     portfolio_acct_totals = np.sum(portfolio_breakdown, axis=0)
-    print("Portfolio totals: ")
+    print("Portfolio account totals: ")
     print(portfolio_acct_totals)
     portfolio_total = np.sum(portfolio_breakdown)
     print("Portfolio total: ")
     print(portfolio_total)
     print()
 
-    # proportions aiming for
-    goal_proportions = data[1:8, 1].astype(np.float)
+    # category proportions aiming for, normalized to 1.0
+    goal_proportions = data[1:final_row_index, 1].astype(np.float)
     print("Goal proportions: ", goal_proportions)
     normalized_goal_proportions = np.round(goal_proportions[nonzero_rows] /
                                            np.sum(goal_proportions[nonzero_rows]), 2)
@@ -61,7 +72,8 @@ def get_targets(goal_proportions, portfolio_total):
 
 def get_new_portfolio_breakdown(portfolio_breakdown, target_amounts):
     """
-    Adjusts the values in the portfolio_breakdown array so that the rows sum as close as possible to the corresponding value in the target_amounts array.
+    Adjusts the values in the portfolio_breakdown array so that the rows sum as close as possible
+        to the corresponding value in the target_amounts array.
     Utilized GPT-4 to help generate this code.
 
     Parameters:
@@ -71,11 +83,12 @@ def get_new_portfolio_breakdown(portfolio_breakdown, target_amounts):
 
     Returns:
     numpy.ndarray: A 2D numpy array that has the same shape as portfolio_breakdown,
-        with the values adjusted so that the rows sum as close as possible to the corresponding value in the target_amounts array.
+        with the values adjusted so that the rows sum as close as possible to the corresponding value
+        in the target_amounts array.
 
-    Results:
+    Test Results:
     1. Column totals are equal!
-    2. Target amounts are off
+    2. Target amounts are off :(
     3. All values are positive!
     """
 
@@ -125,6 +138,7 @@ def get_new_portfolio_breakdown(portfolio_breakdown, target_amounts):
     print(np.sum(portfolio_breakdown, axis=0))
     print()
 
+    # Verify that row totals are as close as possible to the target amounts
     new_portfolio_totals = np.sum(new_portfolio_breakdown, axis=1)
     print("New portfolio totals: ")
     print(new_portfolio_totals)
