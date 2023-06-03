@@ -1,6 +1,4 @@
-# import csv to read the data
 import csv
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -23,6 +21,7 @@ def get_data():
 
 
 def clean_data(data):
+    # convert to a numpy array
     data = np.array(data)
 
     # find and remove empty rows
@@ -39,7 +38,7 @@ def clean_data(data):
     # Convert the array to a Pandas dataframe
     df = pd.DataFrame(data)
 
-    # Convert numeric strings to float64 type
+    # Convert strings to numbers
     df = df.apply(pd.to_numeric, errors='ignore')
 
     # Set the column headers and index to the dataframe
@@ -50,16 +49,20 @@ def clean_data(data):
 
 
 def get_dates_and_headers(data):
+    # get dates
     dates = data[1:, 0]
     dates = pd.to_datetime(dates).values.astype('datetime64[D]')
     print("Dates: " + str(dates))
     print()
+
+    # get number of months and years
     months = len(dates)
     years = months / 12
     print("Total number of months: " + str(months))
     print("Total number of years: " + str(years))
     print()
 
+    # get headers
     headers = data[0, 1:]
     print("Headers: " + str(headers))
     print()
@@ -68,6 +71,12 @@ def get_dates_and_headers(data):
 
 
 def graph_data(data, previous_months_to_analyze):
+    """
+    Graphs the data in various ways
+
+    :param data: the data to graph
+    :param previous_months_to_analyze: the number of previous months to analyze
+    """
     graph_budgeting_data(data, previous_months_to_analyze)
     graph_salary_data(data)
     graph_monthly_income_data(data)
@@ -94,7 +103,9 @@ def plot_and_save(column_1, column_2, data, file_name, previous_months_to_analyz
 
 
 def graph_budgeting_data(data, previous_months_to_analyze):
+    # from column
     column_1 = 'budgeting_gas'
+    # to column
     column_2 = 'budgeting_kids'
     title = 'Budgeting Data'
     x_label = 'Month'
@@ -106,7 +117,9 @@ def graph_budgeting_data(data, previous_months_to_analyze):
 
 
 def graph_salary_data(data):
+    # from column
     column_1 = 'annual_gross_pay_g'
+    # to column
     column_2 = 'annual_gross_pay_j'
     title = 'Salary Data'
     x_label = 'Time'
@@ -118,7 +131,9 @@ def graph_salary_data(data):
 
 
 def graph_monthly_income_data(data):
+    # from column
     column_1 = 'income_total'
+    # to column
     column_2 = 'income_total'
     title = 'Monthly Income Data'
     x_label = 'Time'
