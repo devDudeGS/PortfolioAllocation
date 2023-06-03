@@ -1,19 +1,24 @@
 import csv
-
 import numpy as np
 
 
+# SCRIPT IS WIP
 def get_allocations(starting_portfolio, ideal_allocation, cash_ira_g, cash_ira_j, prices_ira_g, prices_ira_j):
     # ideal cash
-    ideal_cash_allocation = get_ideal_cash_allocation(starting_portfolio, ideal_allocation)
+    ideal_cash_allocation = get_ideal_cash_allocation(
+        starting_portfolio, ideal_allocation)
 
     # how much cash to allocate to each security
-    cash_allocation_ira_g = get_cash_allocation(starting_portfolio, ideal_allocation, cash_ira_g, prices_ira_g)
-    cash_allocation_ira_j = get_cash_allocation(starting_portfolio, ideal_allocation, cash_ira_j, prices_ira_j)
+    cash_allocation_ira_g = get_cash_allocation(
+        starting_portfolio, ideal_allocation, cash_ira_g, prices_ira_g)
+    cash_allocation_ira_j = get_cash_allocation(
+        starting_portfolio, ideal_allocation, cash_ira_j, prices_ira_j)
 
     # how many shares to buy with cash
-    shares_allocation_ira_g = get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation_ira_g, prices_ira_g)
-    shares_allocation_ira_j = get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation_ira_j, prices_ira_j)
+    shares_allocation_ira_g = get_shares_allocation(
+        starting_portfolio, ideal_allocation, cash_allocation_ira_g, prices_ira_g)
+    shares_allocation_ira_j = get_shares_allocation(
+        starting_portfolio, ideal_allocation, cash_allocation_ira_j, prices_ira_j)
 
     return shares_allocation_ira_g, shares_allocation_ira_j, ideal_cash_allocation
 
@@ -45,7 +50,8 @@ def get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation,
         if np.sum(shares) == 0:
             break
         else:
-            cash_allocation = get_cash_allocation(starting_portfolio, ideal_allocation, np.sum(remainder), prices)
+            cash_allocation = get_cash_allocation(
+                starting_portfolio, ideal_allocation, np.sum(remainder), prices)
             shares_total += shares
 
     return shares_total
@@ -65,7 +71,8 @@ def get_ideal_cash_allocation(portfolio, allocation):
     portfolio_diff = portfolio - ideal_allocation_portfolio
     max_portfolio_value = portfolio[np.argmax(portfolio_diff)]
     max_allocation_value = allocation[np.argmax(portfolio_diff)]
-    ideal_portfolio_total = max_portfolio_value / (max_allocation_value * 100) * 100
+    ideal_portfolio_total = max_portfolio_value / \
+        (max_allocation_value * 100) * 100
 
     return np.round(ideal_portfolio_total - np.sum(portfolio), 2)
 
@@ -110,21 +117,24 @@ def input_numbers(all_data_np):
 
     # output shares
     shares_ira_g, shares_ira_j, ideal_cash_allocation = get_allocations(starting_portfolio, goal_proportions,
-                                                                           cash_ira_g, cash_ira_j, ira_prices_g,
-                                                                           ira_prices_j)
+                                                                        cash_ira_g, cash_ira_j, ira_prices_g,
+                                                                        ira_prices_j)
     increase_ira_g = shares_ira_g * ira_prices_g
     increase_ira_j = shares_ira_j * ira_prices_j
 
     # print results
     print("Goal proportions:       ", goal_proportions)
     print("Starting proportions:   ", get_proportions(starting_portfolio))
-    print("Ending proportions:     ", get_proportions(starting_portfolio + increase_ira_g + increase_ira_j))
+    print("Ending proportions:     ", get_proportions(
+        starting_portfolio + increase_ira_g + increase_ira_j))
     print("G's IRA cash start:      ", round(cash_ira_g, 2))
     print("Shares of G's IRA:       ", shares_ira_g)
-    print("G's IRA cash remaining:  ", round(cash_ira_g - np.sum(increase_ira_g), 2))
+    print("G's IRA cash remaining:  ", round(
+        cash_ira_g - np.sum(increase_ira_g), 2))
     print("J's IRA cash start:    ", round(cash_ira_j, 2))
     print("Shares of J's IRA:     ", shares_ira_j)
-    print("J's IRA cash remaining:", round(cash_ira_j - np.sum(increase_ira_j), 2))
+    print("J's IRA cash remaining:", round(
+        cash_ira_j - np.sum(increase_ira_j), 2))
     print("Ideal cash addition:    ", ideal_cash_allocation)
 
 
