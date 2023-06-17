@@ -113,7 +113,7 @@ def get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation,
     shares_total = np.zeros(asset_classes_total)
 
     while True:
-        shares, remainder = np.divmod(cash_allocation, prices)
+        shares, remainder = np.divmod(cash_allocation, prices)  # type: ignore
         if np.sum(shares) == 0:
             break
         else:
@@ -128,7 +128,6 @@ def print_results(shares_ira_self, shares_ira_spouse, prices_ira_self, prices_ir
     increase_ira_self = shares_ira_self * prices_ira_self
     increase_ira_spouse = shares_ira_spouse * prices_ira_spouse
 
-    # print results
     print()
     print("Goal proportions:       ", goal_proportions)
     print("Starting proportions:   ", get_proportions(starting_portfolio))
