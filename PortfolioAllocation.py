@@ -94,18 +94,19 @@ def get_cash_allocation(portfolio, allocation, cash, prices, asset_classes_total
     return np.round(proportion_totals * cash, 2)
 
 
-
 def get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation, prices, asset_classes_total):
     shares_total = np.zeros(asset_classes_total)
+    current_portfolio = starting_portfolio.copy()
 
     while True:
         shares, remainder = np.divmod(cash_allocation, prices)  # type: ignore
         if np.sum(shares) == 0:
             break
         else:
-            cash_allocation = get_cash_allocation(
-                starting_portfolio, ideal_allocation, np.sum(remainder), prices, asset_classes_total)
             shares_total += shares
+            current_portfolio = current_portfolio + shares * prices
+            cash_allocation = get_cash_allocation(
+                current_portfolio, ideal_allocation, np.sum(remainder), prices, asset_classes_total)
 
     return shares_total
 
