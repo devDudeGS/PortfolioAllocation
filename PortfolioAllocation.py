@@ -1,13 +1,14 @@
 import csv
 import numpy as np
 
+DATA_FILE = "data/RetirementData.csv"
+ASSET_CLASS_COUNT = 7
+
 
 def balance_iras():
-    asset_classes_total = 7
-
     all_data_np = get_data()
     starting_portfolio, goal_proportions, cash_ira_self, cash_ira_spouse, prices_ira_self, prices_ira_spouse = get_params(
-        all_data_np, asset_classes_total)
+        all_data_np, ASSET_CLASS_COUNT)
 
     ideal_cash_allocation = get_ideal_cash_allocation(
         starting_portfolio, goal_proportions)
@@ -32,7 +33,7 @@ def balance_iras():
 
 
 def get_data():
-    with open("data/RetirementData.csv", "r") as file:
+    with open(DATA_FILE, "r") as file:
         reader = csv.reader(file)
         data = list(reader)
 
