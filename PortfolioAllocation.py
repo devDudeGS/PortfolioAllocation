@@ -54,10 +54,9 @@ def get_params(
     final_row_index = asset_classes_total + 1
     goal_proportions = all_data_np[1:final_row_index, 1].astype(float)
 
-    starting_portfolio = np.zeros(asset_classes_total)
-    for i in range(0, asset_classes_total):
-        asset_class = all_data_np[i + 1, 2:6].astype(float)
-        starting_portfolio[i] = np.round(np.sum(asset_class), 2)
+    starting_portfolio = np.round(
+        all_data_np[1:final_row_index, 2:6].astype(float).sum(axis=1), 2
+    )
 
     cash_ira_self = float(all_data_np[final_row_index][2])
     cash_ira_spouse = float(all_data_np[final_row_index][3])
@@ -100,13 +99,8 @@ def get_cash_allocation(
     ideal_totals = allocation * (np.sum(portfolio) + cash)
     diff_totals = portfolio - ideal_totals
 
-    # create array of securities to add to
-    revised_totals = np.zeros(asset_classes_total)
-    for i in range(len(diff_totals)):
-        if diff_totals[i] < 0 and prices[i] > 0:
-            revised_totals[i] = diff_totals[i] * -1
-        else:
-            revised_totals[i] = 0
+    # Funding gaps: how much each asset class is under-allocated (zero if over-allocated or unavailable)
+    revised_totals = np.where(prices > 0, np.maximum(-diff_totals, 0), 0)
 
     # determine biggest gaps
     proportion_totals = revised_totals / np.sum(revised_totals)
@@ -200,12 +194,7 @@ def print_results(
 
 def get_proportions(arr: NDArray) -> NDArray:
     """Returns each element's share of the array total, rounded to 3 decimal places."""
-    arr_total = np.sum(arr)
-    proportions = np.zeros(len(arr))
-    for i in range(len(arr)):
-        proportions[i] = arr[i] / arr_total
-
-    return np.round(proportions, 3)
+    return np.round(arr / np.sum(arr), 3)
 
 
 if __name__ == "__main__":
