@@ -41,18 +41,18 @@ def get_data():
 
 def get_params(all_data_np, asset_classes_total):
     final_row_index = asset_classes_total + 1
-    goal_proportions = all_data_np[1:final_row_index, 1].astype(np.float)
+    goal_proportions = all_data_np[1:final_row_index, 1].astype(float)
 
     starting_portfolio = np.zeros(asset_classes_total)
     for i in range(0, asset_classes_total):
-        asset_class = all_data_np[i + 1, 2:6].astype(np.float)
+        asset_class = all_data_np[i + 1, 2:6].astype(float)
         starting_portfolio[i] = np.round(np.sum(asset_class), 2)
 
     cash_ira_self = float(all_data_np[final_row_index][2])
     cash_ira_spouse = float(all_data_np[final_row_index][3])
 
-    prices_ira_self = all_data_np[1:final_row_index, 6].astype(np.float)
-    prices_ira_spouse = all_data_np[1:final_row_index, 7].astype(np.float)
+    prices_ira_self = all_data_np[1:final_row_index, 6].astype(float)
+    prices_ira_spouse = all_data_np[1:final_row_index, 7].astype(float)
 
     return starting_portfolio, goal_proportions, cash_ira_self, cash_ira_spouse, prices_ira_self, prices_ira_spouse
 
@@ -83,7 +83,7 @@ def get_cash_allocation(portfolio, allocation, cash, prices, asset_classes_total
     # create array of securities to add to
     revised_totals = np.zeros(asset_classes_total)
     for i in range(len(diff_totals)):
-        if diff_totals[i] < 0 and prices[i] != -1.00:
+        if diff_totals[i] < 0 and prices[i] > 0:
             revised_totals[i] = diff_totals[i] * -1
         else:
             revised_totals[i] = 0
