@@ -17,18 +17,18 @@ def balance_iras() -> None:
 
     # Allocate G's IRA first against the starting portfolio
     cash_allocation_ira_self = get_cash_allocation(
-        starting_portfolio, goal_proportions, cash_ira_self, prices_ira_self, asset_classes_total)
+        starting_portfolio, goal_proportions, cash_ira_self, prices_ira_self)
     shares_allocation_ira_self = get_shares_allocation(
-        starting_portfolio, goal_proportions, cash_allocation_ira_self, prices_ira_self, asset_classes_total)
+        starting_portfolio, goal_proportions, cash_allocation_ira_self, prices_ira_self)
 
     # Update portfolio to reflect G's purchases before allocating J's IRA
     updated_portfolio = starting_portfolio + shares_allocation_ira_self * prices_ira_self
 
     # Allocate J's IRA against the updated portfolio so gaps aren't double-filled
     cash_allocation_ira_spouse = get_cash_allocation(
-        updated_portfolio, goal_proportions, cash_ira_spouse, prices_ira_spouse, asset_classes_total)
+        updated_portfolio, goal_proportions, cash_ira_spouse, prices_ira_spouse)
     shares_allocation_ira_spouse = get_shares_allocation(
-        updated_portfolio, goal_proportions, cash_allocation_ira_spouse, prices_ira_spouse, asset_classes_total)
+        updated_portfolio, goal_proportions, cash_allocation_ira_spouse, prices_ira_spouse)
 
     print_results(shares_allocation_ira_self, shares_allocation_ira_spouse, prices_ira_self, prices_ira_spouse,
                   cash_ira_self, cash_ira_spouse, starting_portfolio, goal_proportions, ideal_cash_allocation)
@@ -86,7 +86,7 @@ def get_ideal_cash_allocation(portfolio: NDArray, allocation: NDArray) -> float:
 
 
 def get_cash_allocation(
-    portfolio: NDArray, allocation: NDArray, cash: float, prices: NDArray, asset_classes_total: int
+    portfolio: NDArray, allocation: NDArray, cash: float, prices: NDArray
 ) -> NDArray:
     """Distributes available cash across under-allocated asset classes.
 
@@ -111,7 +111,6 @@ def get_shares_allocation(
     ideal_allocation: NDArray,
     cash_allocation: NDArray,
     prices: NDArray,
-    asset_classes_total: int,
 ) -> NDArray:
     """Converts a cash allocation into whole share counts.
 
@@ -119,7 +118,7 @@ def get_shares_allocation(
     no full shares can be purchased. Greedy fallback: spends remaining cash
     share-by-share, prioritising the cheapest under-allocated asset.
     """
-    shares_total = np.zeros(asset_classes_total)
+    shares_total = np.zeros_like(prices)
     current_portfolio = starting_portfolio.copy()
 
     while True:
@@ -130,7 +129,7 @@ def get_shares_allocation(
             shares_total += shares
             current_portfolio = current_portfolio + shares * prices
             cash_allocation = get_cash_allocation(
-                current_portfolio, ideal_allocation, np.sum(remainder), prices, asset_classes_total)
+                current_portfolio, ideal_allocation, np.sum(remainder), prices)
 
     # Greedy fallback: proportional allocation stalled; spend remaining cash share-by-share
     remaining_cash = np.sum(cash_allocation)
