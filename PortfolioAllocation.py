@@ -11,10 +11,21 @@ def balance_iras():
 
     ideal_cash_allocation = get_ideal_cash_allocation(
         starting_portfolio, goal_proportions)
-    cash_allocation_ira_self, cash_allocation_ira_spouse = get_cash_per_asset_class(
-        starting_portfolio, goal_proportions, cash_ira_self, prices_ira_self, cash_ira_spouse, prices_ira_spouse, asset_classes_total)
-    shares_allocation_ira_self, shares_allocation_ira_spouse = get_shares_to_buy(
-        starting_portfolio, goal_proportions, cash_allocation_ira_self, prices_ira_self, cash_allocation_ira_spouse, prices_ira_spouse, asset_classes_total)
+
+    # Allocate G's IRA first against the starting portfolio
+    cash_allocation_ira_self = get_cash_allocation(
+        starting_portfolio, goal_proportions, cash_ira_self, prices_ira_self, asset_classes_total)
+    shares_allocation_ira_self = get_shares_allocation(
+        starting_portfolio, goal_proportions, cash_allocation_ira_self, prices_ira_self, asset_classes_total)
+
+    # Update portfolio to reflect G's purchases before allocating J's IRA
+    updated_portfolio = starting_portfolio + shares_allocation_ira_self * prices_ira_self
+
+    # Allocate J's IRA against the updated portfolio so gaps aren't double-filled
+    cash_allocation_ira_spouse = get_cash_allocation(
+        updated_portfolio, goal_proportions, cash_ira_spouse, prices_ira_spouse, asset_classes_total)
+    shares_allocation_ira_spouse = get_shares_allocation(
+        updated_portfolio, goal_proportions, cash_allocation_ira_spouse, prices_ira_spouse, asset_classes_total)
 
     print_results(shares_allocation_ira_self, shares_allocation_ira_spouse, prices_ira_self, prices_ira_spouse,
                   cash_ira_self, cash_ira_spouse, starting_portfolio, goal_proportions, ideal_cash_allocation)
@@ -64,19 +75,6 @@ def get_ideal_cash_allocation(portfolio, allocation):
     return ideal_cash_allocation
 
 
-def get_cash_per_asset_class(starting_portfolio, goal_proportions, cash_ira_self, prices_ira_self, cash_ira_spouse, prices_ira_spouse, asset_classes_total):
-    """
-    Finds the amount of cash to allocate to each asset class
-    """
-
-    cash_allocation_ira_self = get_cash_allocation(
-        starting_portfolio, goal_proportions, cash_ira_self, prices_ira_self, asset_classes_total)
-    cash_allocation_ira_spouse = get_cash_allocation(
-        starting_portfolio, goal_proportions, cash_ira_spouse, prices_ira_spouse, asset_classes_total)
-
-    return cash_allocation_ira_self, cash_allocation_ira_spouse
-
-
 def get_cash_allocation(portfolio, allocation, cash, prices, asset_classes_total):
     # amount of cash to reach ideal
     ideal_totals = allocation * (np.sum(portfolio) + cash)
@@ -95,18 +93,6 @@ def get_cash_allocation(portfolio, allocation, cash, prices, asset_classes_total
 
     return np.round(proportion_totals * cash, 2)
 
-
-def get_shares_to_buy(starting_portfolio, goal_proportions, cash_allocation_ira_self, prices_ira_self, cash_allocation_ira_spouse, prices_ira_spouse, asset_classes_total):
-    """
-    Finds the number of shares to buy for each asset class
-    """
-
-    shares_allocation_ira_self = get_shares_allocation(
-        starting_portfolio, goal_proportions, cash_allocation_ira_self, prices_ira_self, asset_classes_total)
-    shares_allocation_ira_spouse = get_shares_allocation(
-        starting_portfolio, goal_proportions, cash_allocation_ira_spouse, prices_ira_spouse, asset_classes_total)
-
-    return shares_allocation_ira_self, shares_allocation_ira_spouse
 
 
 def get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation, prices, asset_classes_total):
