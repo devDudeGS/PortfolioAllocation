@@ -78,6 +78,7 @@ def get_ideal_cash_allocation(portfolio: NDArray, allocation: NDArray) -> float:
     portfolio_diff = portfolio - ideal_allocation_portfolio
     most_over_index = np.argmax(portfolio_diff)
     ideal_portfolio_total = portfolio[most_over_index] / allocation[most_over_index]
+    # ideal_portfolio_total = max_portfolio_value / (max_allocation_value * 100) * 100
 
     ideal_cash_allocation = np.round(
         ideal_portfolio_total - np.sum(portfolio), 2)
