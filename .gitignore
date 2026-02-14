@@ -135,6 +135,7 @@ dmypy.json
 .idea/**/workspace.xml
 .idea/**/tasks.xml
 .idea/**/usage.statistics.xml
+.idea/**/misc.xml
 .idea/**/dictionaries
 .idea/**/shelf
 
@@ -207,3 +208,14 @@ fabric.properties
 # data source files
 data/
 graphs/
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+!*.code-workspace
+
+# Built Visual Studio Code Extensions
+*.vsix
