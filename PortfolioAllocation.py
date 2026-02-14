@@ -1,11 +1,13 @@
 import csv
 import numpy as np
+from numpy.typing import NDArray
 
 DATA_FILE = "data/RetirementData.csv"
 ASSET_CLASS_COUNT = 7
 
 
-def balance_iras():
+def balance_iras() -> None:
+    """Orchestrates IRA allocation for two account holders and prints results."""
     all_data_np = get_data()
     starting_portfolio, goal_proportions, cash_ira_self, cash_ira_spouse, prices_ira_self, prices_ira_spouse = get_params(
         all_data_np, ASSET_CLASS_COUNT)
@@ -32,7 +34,8 @@ def balance_iras():
                   cash_ira_self, cash_ira_spouse, starting_portfolio, goal_proportions, ideal_cash_allocation)
 
 
-def get_data():
+def get_data() -> NDArray:
+    """Reads the retirement CSV and returns its contents as a numpy array."""
     with open(DATA_FILE, "r") as file:
         reader = csv.reader(file)
         data = list(reader)
@@ -40,7 +43,14 @@ def get_data():
     return np.array(data)
 
 
-def get_params(all_data_np, asset_classes_total):
+def get_params(
+    all_data_np: NDArray, asset_classes_total: int
+) -> tuple[NDArray, NDArray, float, float, NDArray, NDArray]:
+    """Extracts portfolio parameters from raw CSV data.
+
+    Returns starting portfolio values, goal proportions, available cash for
+    each IRA, and current share prices for each IRA.
+    """
     final_row_index = asset_classes_total + 1
     goal_proportions = all_data_np[1:final_row_index, 1].astype(float)
 
@@ -58,9 +68,11 @@ def get_params(all_data_np, asset_classes_total):
     return starting_portfolio, goal_proportions, cash_ira_self, cash_ira_spouse, prices_ira_self, prices_ira_spouse
 
 
-def get_ideal_cash_allocation(portfolio, allocation):
-    """
-    Finds the ideal cash amount to make the portfolio match the allocation goals
+def get_ideal_cash_allocation(portfolio: NDArray, allocation: NDArray) -> float:
+    """Returns the cash needed to bring the portfolio exactly in line with target allocation.
+
+    Finds the most over-allocated asset class and calculates how much total cash
+    would be needed to make every other class proportionally match it.
     """
 
     ideal_allocation_portfolio = allocation * np.sum(portfolio)
@@ -76,7 +88,14 @@ def get_ideal_cash_allocation(portfolio, allocation):
     return ideal_cash_allocation
 
 
-def get_cash_allocation(portfolio, allocation, cash, prices, asset_classes_total):
+def get_cash_allocation(
+    portfolio: NDArray, allocation: NDArray, cash: float, prices: NDArray, asset_classes_total: int
+) -> NDArray:
+    """Distributes available cash across under-allocated asset classes.
+
+    Proportionally fills gaps relative to target allocation, skipping asset
+    classes with no available price (price <= 0).
+    """
     # amount of cash to reach ideal
     ideal_totals = allocation * (np.sum(portfolio) + cash)
     diff_totals = portfolio - ideal_totals
@@ -95,7 +114,19 @@ def get_cash_allocation(portfolio, allocation, cash, prices, asset_classes_total
     return np.round(proportion_totals * cash, 2)
 
 
-def get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation, prices, asset_classes_total):
+def get_shares_allocation(
+    starting_portfolio: NDArray,
+    ideal_allocation: NDArray,
+    cash_allocation: NDArray,
+    prices: NDArray,
+    asset_classes_total: int,
+) -> NDArray:
+    """Converts a cash allocation into whole share counts.
+
+    First pass: iteratively buys shares in proportion to funding gaps until
+    no full shares can be purchased. Greedy fallback: spends remaining cash
+    share-by-share, prioritising the cheapest under-allocated asset.
+    """
     shares_total = np.zeros(asset_classes_total)
     current_portfolio = starting_portfolio.copy()
 
@@ -132,7 +163,18 @@ def get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation,
     return shares_total
 
 
-def print_results(shares_ira_self, shares_ira_spouse, prices_ira_self, prices_ira_spouse, cash_ira_self, cash_ira_spouse, starting_portfolio, goal_proportions, ideal_cash_allocation):
+def print_results(
+    shares_ira_self: NDArray,
+    shares_ira_spouse: NDArray,
+    prices_ira_self: NDArray,
+    prices_ira_spouse: NDArray,
+    cash_ira_self: float,
+    cash_ira_spouse: float,
+    starting_portfolio: NDArray,
+    goal_proportions: NDArray,
+    ideal_cash_allocation: float,
+) -> None:
+    """Prints a summary of the allocation results for both IRAs."""
     increase_ira_self = shares_ira_self * prices_ira_self
     increase_ira_spouse = shares_ira_spouse * prices_ira_spouse
 
@@ -156,7 +198,8 @@ def print_results(shares_ira_self, shares_ira_spouse, prices_ira_self, prices_ir
     print()
 
 
-def get_proportions(arr):
+def get_proportions(arr: NDArray) -> NDArray:
+    """Returns each element's share of the array total, rounded to 3 decimal places."""
     arr_total = np.sum(arr)
     proportions = np.zeros(len(arr))
     for i in range(len(arr)):
