@@ -108,6 +108,26 @@ def get_shares_allocation(starting_portfolio, ideal_allocation, cash_allocation,
             cash_allocation = get_cash_allocation(
                 current_portfolio, ideal_allocation, np.sum(remainder), prices, asset_classes_total)
 
+    # Greedy fallback: proportional allocation stalled; spend remaining cash share-by-share
+    remaining_cash = np.sum(cash_allocation)
+    available = prices > 0  # excludes -1 (unavailable funds)
+
+    while remaining_cash > 0:
+        ideal_totals = ideal_allocation * (np.sum(current_portfolio) + remaining_cash)
+        under_allocated = (current_portfolio - ideal_totals) < 0
+
+        # Prefer cheapest under-allocated affordable share; fall back to any affordable share
+        candidates = under_allocated & available & (prices <= remaining_cash)
+        if not np.any(candidates):
+            candidates = available & (prices <= remaining_cash)
+        if not np.any(candidates):
+            break
+
+        idx = np.argmin(np.where(candidates, prices, np.inf))
+        shares_total[idx] += 1
+        current_portfolio[idx] += prices[idx]
+        remaining_cash -= prices[idx]
+
     return shares_total
 
 
