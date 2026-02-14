@@ -1,11 +1,24 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
 DATA_FILE = "data/RetirementData.csv"
 ASSET_CLASS_COUNT = 7
+IRA_SELF_LABEL   = "G's IRA"
+IRA_SPOUSE_LABEL = "J's IRA"
+
+
+@dataclass
+class IRAAllocation:
+    """Per-account data grouping label, available cash, share counts, and prices."""
+
+    label:  str
+    cash:   float
+    shares: NDArray
+    prices: NDArray
 
 
 def balance_iras() -> None:
@@ -32,8 +45,19 @@ def balance_iras() -> None:
     shares_allocation_ira_spouse = get_shares_allocation(
         updated_portfolio, goal_proportions, cash_allocation_ira_spouse, prices_ira_spouse, ASSET_CLASS_COUNT)
 
-    print_results(shares_allocation_ira_self, shares_allocation_ira_spouse, prices_ira_self, prices_ira_spouse,
-                  cash_ira_self, cash_ira_spouse, starting_portfolio, goal_proportions, ideal_cash_allocation)
+    ira_self = IRAAllocation(
+        label=IRA_SELF_LABEL,
+        cash=cash_ira_self,
+        shares=shares_allocation_ira_self,
+        prices=prices_ira_self,
+    )
+    ira_spouse = IRAAllocation(
+        label=IRA_SPOUSE_LABEL,
+        cash=cash_ira_spouse,
+        shares=shares_allocation_ira_spouse,
+        prices=prices_ira_spouse,
+    )
+    print_results(ira_self, ira_spouse, starting_portfolio, goal_proportions, ideal_cash_allocation)
 
 
 def get_data() -> NDArray:
@@ -45,6 +69,29 @@ def get_data() -> NDArray:
     return np.array(data)
 
 
+def _parse_goal_proportions(all_data_np: NDArray, final_row_index: int) -> NDArray:
+    """Extracts target allocation proportions from the CSV data."""
+    return all_data_np[1:final_row_index, 1].astype(float)
+
+
+def _build_starting_portfolio(all_data_np: NDArray, final_row_index: int) -> NDArray:
+    """Sums current holdings across all accounts to form the starting portfolio."""
+    return np.round(all_data_np[1:final_row_index, 2:6].astype(float).sum(axis=1), 2)
+
+
+def _read_cash_amounts(all_data_np: NDArray, final_row_index: int) -> tuple[float, float]:
+    """Reads available cash for self and spouse IRAs from the CSV data."""
+    return float(all_data_np[final_row_index][2]), float(all_data_np[final_row_index][3])
+
+
+def _read_prices(all_data_np: NDArray, final_row_index: int) -> tuple[NDArray, NDArray]:
+    """Reads current share prices for self and spouse IRAs from the CSV data."""
+    return (
+        all_data_np[1:final_row_index, 6].astype(float),
+        all_data_np[1:final_row_index, 7].astype(float),
+    )
+
+
 def get_params(
     all_data_np: NDArray, asset_classes_total: int
 ) -> tuple[NDArray, NDArray, float, float, NDArray, NDArray]:
@@ -54,19 +101,12 @@ def get_params(
     each IRA, and current share prices for each IRA.
     """
     final_row_index = asset_classes_total + 1
-    goal_proportions = all_data_np[1:final_row_index, 1].astype(float)
-
-    starting_portfolio = np.round(
-        all_data_np[1:final_row_index, 2:6].astype(float).sum(axis=1), 2
+    return (
+        _build_starting_portfolio(all_data_np, final_row_index),
+        _parse_goal_proportions(all_data_np, final_row_index),
+        *_read_cash_amounts(all_data_np, final_row_index),
+        *_read_prices(all_data_np, final_row_index),
     )
-
-    cash_ira_self = float(all_data_np[final_row_index][2])
-    cash_ira_spouse = float(all_data_np[final_row_index][3])
-
-    prices_ira_self = all_data_np[1:final_row_index, 6].astype(float)
-    prices_ira_spouse = all_data_np[1:final_row_index, 7].astype(float)
-
-    return starting_portfolio, goal_proportions, cash_ira_self, cash_ira_spouse, prices_ira_self, prices_ira_spouse
 
 
 def get_ideal_cash_allocation(portfolio: NDArray, allocation: NDArray) -> float:
@@ -158,19 +198,15 @@ def get_shares_allocation(
 
 
 def print_results(
-    shares_ira_self: NDArray,
-    shares_ira_spouse: NDArray,
-    prices_ira_self: NDArray,
-    prices_ira_spouse: NDArray,
-    cash_ira_self: float,
-    cash_ira_spouse: float,
+    ira_self: IRAAllocation,
+    ira_spouse: IRAAllocation,
     starting_portfolio: NDArray,
     goal_proportions: NDArray,
     ideal_cash_allocation: float,
 ) -> None:
     """Prints a summary of the allocation results for both IRAs."""
-    increase_ira_self = shares_ira_self * prices_ira_self
-    increase_ira_spouse = shares_ira_spouse * prices_ira_spouse
+    increase_ira_self   = ira_self.shares   * ira_self.prices
+    increase_ira_spouse = ira_spouse.shares * ira_spouse.prices
 
     print()
     print("Goal proportions:       ", goal_proportions)
@@ -178,15 +214,15 @@ def print_results(
     print("Ending proportions:     ", get_proportions(
         starting_portfolio + increase_ira_self + increase_ira_spouse))
     print()
-    print("G's IRA cash start:      ", round(cash_ira_self, 2))
-    print("Shares of G's IRA:       ", shares_ira_self)
-    print("G's IRA cash remaining:  ", round(
-        cash_ira_self - np.sum(increase_ira_self), 2))
+    print(f"{ira_self.label} cash start:      ", round(ira_self.cash, 2))
+    print(f"Shares of {ira_self.label}:       ", ira_self.shares)
+    print(f"{ira_self.label} cash remaining:  ", round(
+        ira_self.cash - np.sum(increase_ira_self), 2))
     print()
-    print("J's IRA cash start:    ", round(cash_ira_spouse, 2))
-    print("Shares of J's IRA:     ", shares_ira_spouse)
-    print("J's IRA cash remaining:", round(
-        cash_ira_spouse - np.sum(increase_ira_spouse), 2))
+    print(f"{ira_spouse.label} cash start:    ", round(ira_spouse.cash, 2))
+    print(f"Shares of {ira_spouse.label}:     ", ira_spouse.shares)
+    print(f"{ira_spouse.label} cash remaining:", round(
+        ira_spouse.cash - np.sum(increase_ira_spouse), 2))
     print()
     print("Ideal cash addition:    ", ideal_cash_allocation)
     print()
