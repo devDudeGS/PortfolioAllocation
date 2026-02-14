@@ -19,18 +19,18 @@ def balance_iras() -> None:
 
     # Allocate G's IRA first against the starting portfolio
     cash_allocation_ira_self = get_cash_allocation(
-        starting_portfolio, goal_proportions, cash_ira_self, prices_ira_self, asset_classes_total)
+        starting_portfolio, goal_proportions, cash_ira_self, prices_ira_self, ASSET_CLASS_COUNT)
     shares_allocation_ira_self = get_shares_allocation(
-        starting_portfolio, goal_proportions, cash_allocation_ira_self, prices_ira_self, asset_classes_total)
+        starting_portfolio, goal_proportions, cash_allocation_ira_self, prices_ira_self, ASSET_CLASS_COUNT)
 
     # Update portfolio to reflect G's purchases before allocating J's IRA
     updated_portfolio = starting_portfolio + shares_allocation_ira_self * prices_ira_self
 
     # Allocate J's IRA against the updated portfolio so gaps aren't double-filled
     cash_allocation_ira_spouse = get_cash_allocation(
-        updated_portfolio, goal_proportions, cash_ira_spouse, prices_ira_spouse, asset_classes_total)
+        updated_portfolio, goal_proportions, cash_ira_spouse, prices_ira_spouse, ASSET_CLASS_COUNT)
     shares_allocation_ira_spouse = get_shares_allocation(
-        updated_portfolio, goal_proportions, cash_allocation_ira_spouse, prices_ira_spouse, asset_classes_total)
+        updated_portfolio, goal_proportions, cash_allocation_ira_spouse, prices_ira_spouse, ASSET_CLASS_COUNT)
 
     print_results(shares_allocation_ira_self, shares_allocation_ira_spouse, prices_ira_self, prices_ira_spouse,
                   cash_ira_self, cash_ira_spouse, starting_portfolio, goal_proportions, ideal_cash_allocation)
