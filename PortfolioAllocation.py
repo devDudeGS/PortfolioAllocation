@@ -8,14 +8,16 @@ from numpy.typing import NDArray
 # CSV format requirements:
 #   Column 1:   "security_type" — asset class labels (e.g. total_stock, gold)
 #   Column 2:   "ideal_portfolio" — target allocation proportions (must sum to 1.0, none may be 0)
-#   Columns 3+: Account holding values and IRA share prices, with these naming conventions:
-#       - IRA holdings:   "ira_<person>"        (e.g. ira_g, ira_j)
-#       - 401k holdings:  "401k_<person>"       (e.g. 401k_g, 401k_j)
-#       - Other holdings: any name without the "ira_prices_" prefix
-#       - IRA prices:     "ira_prices_<person>" (e.g. ira_prices_g) — one per IRA,
-#                          must match an ira_<person> column
+#   Columns 3+: Account holding values, IRA prices, and IRA fund tickers, with these naming conventions:
+#       - IRA holdings:   "ira_<person>"              (e.g. ira_g, ira_j)
+#       - 401k holdings:  "401k_<person>"             (e.g. 401k_g, 401k_j)
+#       - Other holdings: any name without an "ira_prices_" or "ira_fund_" prefix
+#       - IRA prices:     "ira_prices_<person>"       (e.g. ira_prices_g) — one per IRA,
+#                          must match an ira_<person> column. Use -1 where a fund is unavailable.
+#       - IRA fund names: "ira_fund_<person>"         (e.g. ira_fund_g) — optional, one per IRA,
+#                          ticker symbols for each asset class in that account. Use "N/A" where unavailable.
 #   Last row:   security_type must be "cash", with available cash in IRA holding columns
-#               and 0 elsewhere. Use -1 for IRA prices where a fund is unavailable.
+#               and 0 elsewhere.
 #   The <person> suffix generates labels (e.g. ira_g -> "G's IRA").
 #   IRAs are allocated in the order their price columns appear in the header.
 
@@ -27,23 +29,24 @@ class CSVLayout:
     """Column indices and per-IRA metadata parsed from the CSV header."""
 
     holding_col_indices: list[int] = field(default_factory=list)
-    ira_configs: list[tuple[str, int, int]] = field(default_factory=list)  # (label, holding_col, price_col)
+    ira_configs: list[tuple[str, int, int, int | None]] = field(default_factory=list)  # (label, holding_col, price_col, fund_col)
 
 
 @dataclass
 class IRAAllocation:
-    """Per-account data grouping label, available cash, share counts, and prices."""
+    """Per-account data grouping label, available cash, share counts, prices, and fund tickers."""
 
     label:  str
     cash:   float
     shares: NDArray
     prices: NDArray
+    funds:  list[str]
 
 
 def balance_iras() -> None:
     """Orchestrates IRA allocation for all account holders and prints results."""
     all_data_np = get_data()
-    starting_portfolio, goal_proportions, ira_configs = get_params(all_data_np)
+    starting_portfolio, goal_proportions, security_types, ira_configs = get_params(all_data_np)
 
     ideal_cash_allocation = get_ideal_cash_allocation(
         starting_portfolio, goal_proportions)
@@ -51,15 +54,15 @@ def balance_iras() -> None:
     current_portfolio = starting_portfolio.copy()
     iras: list[IRAAllocation] = []
 
-    for label, cash, prices in ira_configs:
+    for label, cash, prices, funds in ira_configs:
         cash_alloc = get_cash_allocation(
             current_portfolio, goal_proportions, cash, prices)
         shares_alloc = get_shares_allocation(
             current_portfolio, goal_proportions, cash_alloc, prices)
         current_portfolio = current_portfolio + shares_alloc * prices
-        iras.append(IRAAllocation(label=label, cash=cash, shares=shares_alloc, prices=prices))
+        iras.append(IRAAllocation(label=label, cash=cash, shares=shares_alloc, prices=prices, funds=funds))
 
-    print_results(iras, starting_portfolio, goal_proportions, ideal_cash_allocation)
+    print_results(iras, starting_portfolio, goal_proportions, security_types, ideal_cash_allocation)
 
 
 def get_data() -> NDArray:
@@ -72,8 +75,9 @@ def get_data() -> NDArray:
 
 
 def _parse_csv_layout(headers: list[str]) -> CSVLayout:
-    """Identifies holding columns, IRA columns, and price columns from CSV headers."""
+    """Identifies holding columns, IRA columns, price columns, and fund columns from CSV headers."""
     price_persons: dict[str, int] = {}
+    fund_persons: dict[str, int] = {}
     ira_holding_persons: dict[str, int] = {}
     holding_col_indices: list[int] = []
 
@@ -81,15 +85,15 @@ def _parse_csv_layout(headers: list[str]) -> CSVLayout:
         if i < 2:
             continue
         if header.startswith("ira_prices_"):
-            person = header[len("ira_prices_"):]
-            price_persons[person] = i
+            price_persons[header[len("ira_prices_"):]] = i
+        elif header.startswith("ira_fund_"):
+            fund_persons[header[len("ira_fund_"):]] = i
         else:
             holding_col_indices.append(i)
             if header.startswith("ira_"):
-                person = header[len("ira_"):]
-                ira_holding_persons[person] = i
+                ira_holding_persons[header[len("ira_"):]] = i
 
-    ira_configs: list[tuple[str, int, int]] = []
+    ira_configs: list[tuple[str, int, int, int | None]] = []
     for person, price_col in price_persons.items():
         if person not in ira_holding_persons:
             raise ValueError(
@@ -97,7 +101,8 @@ def _parse_csv_layout(headers: list[str]) -> CSVLayout:
                 f"'ira_{person}' holding column in {DATA_FILE}."
             )
         label = f"{person.capitalize()}'s IRA"
-        ira_configs.append((label, ira_holding_persons[person], price_col))
+        fund_col = fund_persons.get(person)
+        ira_configs.append((label, ira_holding_persons[person], price_col, fund_col))
 
     if not ira_configs:
         raise ValueError(f"No IRA price columns (ira_prices_*) found in {DATA_FILE}.")
@@ -129,11 +134,11 @@ def _build_starting_portfolio(
 
 def get_params(
     all_data_np: NDArray,
-) -> tuple[NDArray, NDArray, list[tuple[str, float, NDArray]]]:
+) -> tuple[NDArray, NDArray, list[str], list[tuple[str, float, NDArray, list[str]]]]:
     """Extracts portfolio parameters from raw CSV data.
 
-    Returns starting portfolio values, goal proportions, and a list of
-    (label, cash, prices) tuples — one per IRA found in the CSV header.
+    Returns starting portfolio values, goal proportions, asset class names, and a list of
+    (label, cash, prices, funds) tuples — one per IRA found in the CSV header.
     """
     headers = all_data_np[0].tolist()
     layout = _parse_csv_layout(headers)
@@ -159,13 +164,16 @@ def get_params(
     starting_portfolio = _build_starting_portfolio(
         all_data_np, asset_rows, layout.holding_col_indices)
 
-    ira_configs: list[tuple[str, float, NDArray]] = []
-    for label, holding_col, price_col in layout.ira_configs:
+    security_types: list[str] = all_data_np[asset_rows, 0].tolist()
+
+    ira_configs: list[tuple[str, float, NDArray, list[str]]] = []
+    for label, holding_col, price_col, fund_col in layout.ira_configs:
         cash = float(all_data_np[cash_row_index, holding_col])
         prices = all_data_np[asset_rows, price_col].astype(float)
-        ira_configs.append((label, cash, prices))
+        funds = all_data_np[asset_rows, fund_col].tolist() if fund_col is not None else [""] * len(security_types)
+        ira_configs.append((label, cash, prices, funds))
 
-    return starting_portfolio, goal_proportions, ira_configs
+    return starting_portfolio, goal_proportions, security_types, ira_configs
 
 
 def get_ideal_cash_allocation(portfolio: NDArray, allocation: NDArray) -> float:
@@ -257,6 +265,7 @@ def print_results(
     iras: list[IRAAllocation],
     starting_portfolio: NDArray,
     goal_proportions: NDArray,
+    security_types: list[str],
     ideal_cash_allocation: float,
 ) -> None:
     """Prints a summary of the allocation results for all IRAs."""
@@ -264,20 +273,31 @@ def print_results(
     for ira in iras:
         total_increase += ira.shares * ira.prices
 
+    goal_pct   = goal_proportions * 100
+    start_pct  = get_proportions(starting_portfolio) * 100
+    end_pct    = get_proportions(starting_portfolio + total_increase) * 100
+    name_width = max(len(n) for n in security_types)
+
     print()
-    print("Goal proportions:       ", goal_proportions)
-    print("Starting proportions:   ", get_proportions(starting_portfolio))
-    print("Ending proportions:     ", get_proportions(starting_portfolio + total_increase))
+    print(f"  {'Asset class':<{name_width}}    Goal   Start     End")
+    print(f"  {'-' * name_width}  ------  ------  ------")
+    for name, g, s, e in zip(security_types, goal_pct, start_pct, end_pct):
+        print(f"  {name:<{name_width}}  {g:5.1f}%  {s:5.1f}%  {e:5.1f}%")
 
     for ira in iras:
         increase = ira.shares * ira.prices
         print()
-        print(f"{ira.label} cash start:     ", round(ira.cash, 2))
-        print(f"Shares of {ira.label}:      ", ira.shares)
-        print(f"{ira.label} cash remaining: ", round(ira.cash - np.sum(increase), 2))
+        print(f"{ira.label} — cash: ${ira.cash:,.2f}")
+        fund_width = max((len(f) for f in ira.funds if f and f != "N/A"), default=4)
+        for fund, name, shares in zip(ira.funds, security_types, ira.shares):
+            if shares > 0:
+                share_label = "share" if shares == 1 else "shares"
+                fund_str = f"{fund:<{fund_width}}" if fund and fund != "N/A" else " " * fund_width
+                print(f"  {fund_str}  ({name:<{name_width}})  {int(shares):>4} {share_label}")
+        print(f"  Cash remaining: ${ira.cash - np.sum(increase):,.2f}")
 
     print()
-    print("Ideal cash addition:    ", ideal_cash_allocation)
+    print(f"Ideal cash addition: ${ideal_cash_allocation:,.2f}")
     print()
 
 
