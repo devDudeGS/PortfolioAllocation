@@ -32,7 +32,7 @@ def balance_iras() -> None:
 
     # Allocate G's IRA first against the starting portfolio
     cash_allocation_ira_self = get_cash_allocation(
-        starting_portfolio, goal_proportions, cash_ira_self, prices_ira_self, ASSET_CLASS_COUNT)
+        starting_portfolio, goal_proportions, cash_ira_self, prices_ira_self)
     shares_allocation_ira_self = get_shares_allocation(
         starting_portfolio, goal_proportions, cash_allocation_ira_self, prices_ira_self, ASSET_CLASS_COUNT)
 
@@ -41,7 +41,7 @@ def balance_iras() -> None:
 
     # Allocate J's IRA against the updated portfolio so gaps aren't double-filled
     cash_allocation_ira_spouse = get_cash_allocation(
-        updated_portfolio, goal_proportions, cash_ira_spouse, prices_ira_spouse, ASSET_CLASS_COUNT)
+        updated_portfolio, goal_proportions, cash_ira_spouse, prices_ira_spouse)
     shares_allocation_ira_spouse = get_shares_allocation(
         updated_portfolio, goal_proportions, cash_allocation_ira_spouse, prices_ira_spouse, ASSET_CLASS_COUNT)
 
@@ -101,9 +101,25 @@ def get_params(
     each IRA, and current share prices for each IRA.
     """
     final_row_index = asset_classes_total + 1
+    goal_proportions = _parse_goal_proportions(all_data_np, final_row_index)
+
+    if np.any(goal_proportions == 0):
+        zero_classes = np.where(goal_proportions == 0)[0]
+        raise ValueError(
+            f"Goal proportions cannot be 0 (found at index {zero_classes.tolist()}). "
+            f"Remove zero-allocation classes from {DATA_FILE} or set a non-zero target."
+        )
+
+    proportion_sum = np.round(np.sum(goal_proportions), 10)
+    if proportion_sum != 1.0:
+        raise ValueError(
+            f"Goal proportions must sum to 1.0, but sum to {proportion_sum}. "
+            f"Check the ideal_portfolio column in {DATA_FILE}."
+        )
+
     return (
         _build_starting_portfolio(all_data_np, final_row_index),
-        _parse_goal_proportions(all_data_np, final_row_index),
+        goal_proportions,
         *_read_cash_amounts(all_data_np, final_row_index),
         *_read_prices(all_data_np, final_row_index),
     )
@@ -116,9 +132,7 @@ def get_ideal_cash_allocation(portfolio: NDArray, allocation: NDArray) -> float:
     would be needed to make every other class proportionally match it.
     """
 
-    ideal_allocation_portfolio = allocation * np.sum(portfolio)
-    portfolio_diff = portfolio - ideal_allocation_portfolio
-    most_over_index = np.argmax(portfolio_diff)
+    most_over_index = np.argmax(portfolio / allocation)
     ideal_portfolio_total = portfolio[most_over_index] / allocation[most_over_index]
 
     ideal_cash_allocation = np.round(
@@ -128,7 +142,7 @@ def get_ideal_cash_allocation(portfolio: NDArray, allocation: NDArray) -> float:
 
 
 def get_cash_allocation(
-    portfolio: NDArray, allocation: NDArray, cash: float, prices: NDArray, asset_classes_total: int
+    portfolio: NDArray, allocation: NDArray, cash: float, prices: NDArray
 ) -> NDArray:
     """Distributes available cash across under-allocated asset classes.
 
@@ -172,7 +186,7 @@ def get_shares_allocation(
             shares_total += shares
             current_portfolio = current_portfolio + shares * prices
             cash_allocation = get_cash_allocation(
-                current_portfolio, ideal_allocation, np.sum(remainder), prices, asset_classes_total)
+                current_portfolio, ideal_allocation, np.sum(remainder), prices)
 
     # Greedy fallback: proportional allocation stalled; spend remaining cash share-by-share
     remaining_cash = np.sum(cash_allocation)
