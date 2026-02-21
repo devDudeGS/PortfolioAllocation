@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
-Transform a bank CSV export into a cleaned transaction CSV.
+Transform bank CSV exports into cleaned monthly transaction CSVs.
 
-Usage: python transactions_sanitizer.py input.csv output.csv
+Looks for CSV files in data/transactions/raw/ (relative to this script's directory),
+processes each one, and writes combined monthly output files to data/transactions/.
+Processed input files are moved to data/transactions/raw/sanitized/.
 
 The Source field is derived from the input filename prefix before the first '-'.
 e.g. "navyfed-2025_11-1.csv" -> source "navyfed"
+
+The month key is extracted from the filename as YYYY_MM pattern.
+e.g. "amazon-2025_12.csv" -> month "2025_12"
 
 All output dates are normalized to YYYY/MM/DD.
 All formats are sorted ascending by date.
@@ -47,6 +52,8 @@ Supported formats are auto-detected by their column headers:
 
 import csv
 import os
+import re
+import shutil
 import sys
 from datetime import datetime
 
@@ -55,6 +62,16 @@ AMAZON_KEEP_KEYWORDS = ["prime", "kindle", "audible"]
 
 DATE_FORMATS = ["%m/%d/%Y", "%Y-%m-%d", "%Y/%m/%d"]
 OUTPUT_DATE_FORMAT = "%Y/%m/%d"
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+RAW_DIR = os.path.join(SCRIPT_DIR, "data", "transactions", "raw")
+SANITIZED_DIR = os.path.join(RAW_DIR, "sanitized")
+OUT_DIR = os.path.join(SCRIPT_DIR, "data", "transactions")
+
+MONTH_PATTERN = re.compile(r"\d{4}_\d{2}")
+
+BASE_COLS = ["Date", "Amount", "Description", "Category", "Tag", "Source"]
+DROP_COLS = {"Debit", "Credit", "Type", "Credit Debit Indicator"}
 
 
 def parse_date(date_str):
@@ -97,8 +114,7 @@ def transform_navyfed(rows, source):
             "Source": source,
             "Credit Debit Indicator": row["Credit Debit Indicator"],
         })
-    out_rows.sort(key=lambda r: r["Date"])
-    fieldnames = ["Date", "Amount", "Description", "Category", "Tag", "Source", "Credit Debit Indicator"]
+    fieldnames = BASE_COLS + ["Credit Debit Indicator"]
     return out_rows, fieldnames
 
 
@@ -121,8 +137,7 @@ def transform_atlanticunion(rows, source):
             "Debit": debit,
             "Credit": credit,
         })
-    out_rows.sort(key=lambda r: r["Date"])
-    fieldnames = ["Date", "Amount", "Description", "Category", "Tag", "Source", "Debit", "Credit"]
+    fieldnames = BASE_COLS + ["Debit", "Credit"]
     return out_rows, fieldnames
 
 
@@ -139,8 +154,7 @@ def transform_chase(rows, source):
             "Source": source,
             "Type": row["Type"],
         })
-    out_rows.sort(key=lambda r: r["Date"])
-    fieldnames = ["Date", "Amount", "Description", "Category", "Tag", "Source", "Type"]
+    fieldnames = BASE_COLS + ["Type"]
     return out_rows, fieldnames
 
 
@@ -164,8 +178,7 @@ def transform_amazon(rows, source):
             "Source": source,
             "Amazon #": "",
         })
-    out_rows.sort(key=lambda r: r["Date"])
-    fieldnames = ["Date", "Amount", "Description", "Category", "Tag", "Source", "Amazon #"]
+    fieldnames = BASE_COLS + ["Amazon #"]
     return out_rows, fieldnames
 
 
@@ -181,12 +194,19 @@ def transform_penfed(rows, source):
             "Tag": "",
             "Source": source,
         })
-    out_rows.sort(key=lambda r: r["Date"])
-    fieldnames = ["Date", "Amount", "Description", "Category", "Tag", "Source"]
+    fieldnames = BASE_COLS[:]
     return out_rows, fieldnames
 
 
-def transform(input_path, output_path):
+def get_month_key(filename):
+    m = MONTH_PATTERN.search(filename)
+    if not m:
+        raise ValueError(f"Cannot extract month key (YYYY_MM) from filename: {filename}")
+    return m.group()
+
+
+def process_file(input_path):
+    """Process a single input CSV, returning (out_rows, fieldnames)."""
     basename = os.path.basename(input_path)
     source = basename.split("-")[0]
 
@@ -196,29 +216,78 @@ def transform(input_path, output_path):
         fmt = detect_format(reader.fieldnames, source)
 
     if fmt == "navyfed":
-        out_rows, fieldnames = transform_navyfed(rows, source)
+        return transform_navyfed(rows, source)
     elif fmt == "atlanticunion":
-        out_rows, fieldnames = transform_atlanticunion(rows, source)
+        return transform_atlanticunion(rows, source)
     elif fmt == "chase":
-        out_rows, fieldnames = transform_chase(rows, source)
+        return transform_chase(rows, source)
     elif fmt == "amazon":
-        out_rows, fieldnames = transform_amazon(rows, source)
+        return transform_amazon(rows, source)
     elif fmt == "penfed":
-        out_rows, fieldnames = transform_penfed(rows, source)
+        return transform_penfed(rows, source)
+
+
+def write_monthly(month_key, all_rows, extra_cols):
+    """Write combined monthly CSV sorted by date."""
+    output_path = os.path.join(OUT_DIR, f"{month_key}.csv")
+    fieldnames = BASE_COLS + extra_cols
+    all_rows.sort(key=lambda r: r["Date"])
 
     with open(output_path, newline="", mode="w", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore", restval="")
         writer.writeheader()
-        for row in out_rows:
+        for row in all_rows:
             amt = row["Amount"]
-            row["Amount"] = f"{amt:.2f}"
+            row["Amount"] = f"{amt:.2f}" if isinstance(amt, float) else amt
             writer.writerow(row)
 
-    print(f"Wrote {len(out_rows)} rows to {output_path} (format: {fmt})")
+    print(f"Wrote {len(all_rows)} rows to {output_path}")
+
+
+def main():
+    os.makedirs(SANITIZED_DIR, exist_ok=True)
+
+    raw_files = sorted(
+        f for f in os.listdir(RAW_DIR)
+        if f.endswith(".csv") and os.path.isfile(os.path.join(RAW_DIR, f))
+    )
+
+    if not raw_files:
+        print(f"No CSV files found in {RAW_DIR}")
+        return
+
+    # month_key -> {"rows": [...], "extra_cols": [...]}
+    monthly = {}
+    processed = []
+
+    for filename in raw_files:
+        input_path = os.path.join(RAW_DIR, filename)
+        try:
+            month_key = get_month_key(filename)
+            out_rows, fieldnames = process_file(input_path)
+        except Exception as e:
+            print(f"Error processing {filename}: {e}", file=sys.stderr)
+            continue
+
+        if month_key not in monthly:
+            monthly[month_key] = {"rows": [], "extra_cols": []}
+
+        monthly[month_key]["rows"].extend(out_rows)
+        for col in fieldnames:
+            if col not in BASE_COLS and col not in DROP_COLS and col not in monthly[month_key]["extra_cols"]:
+                monthly[month_key]["extra_cols"].append(col)
+
+        processed.append(input_path)
+        print(f"Processed {filename} ({len(out_rows)} rows, month: {month_key})")
+
+    for month_key in sorted(monthly.keys()):
+        write_monthly(month_key, monthly[month_key]["rows"], monthly[month_key]["extra_cols"])
+
+    for input_path in processed:
+        dest = os.path.join(SANITIZED_DIR, os.path.basename(input_path))
+        shutil.move(input_path, dest)
+        print(f"Moved {os.path.basename(input_path)} -> sanitized/")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python transactions_sanitizer.py input.csv output.csv")
-        sys.exit(1)
-    transform(sys.argv[1], sys.argv[2])
+    main()
