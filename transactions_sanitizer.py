@@ -20,23 +20,19 @@ Supported formats are auto-detected by their column headers:
 
   navyfed (Navy Federal):
     Input columns:  Posting Date, Transaction Date, Amount, Credit Debit Indicator, Description, Category, ...
-    Output columns: Date, Amount, Description, Category, Tag, Source, Credit Debit Indicator
     Sign logic:     Debit = positive, Credit = negative
 
   atlanticunion (Atlantic Union):
     Input columns:  Account Number, Post Date, Check, Description, Debit, Credit, Status, Balance
-    Output columns: Date, Amount, Description, Category, Tag, Source, Debit, Credit
     Sign logic:     Debit column present = positive Amount, Credit column present = negative Amount
 
   chase (Chase credit card):
     Input columns:  Transaction Date, Post Date, Description, Category, Type, Amount, Memo
-    Output columns: Date, Amount, Description, Category, Tag, Source, Type
     Sign logic:     Input Amount is already signed (sales negative, payments positive);
                     negate to get output convention (sales positive, payments negative)
 
   amazon (Amazon Chase credit card):
     Input columns:  Transaction Date, Post Date, Description, Category, Type, Amount, Memo
-    Output columns: Date, Amount, Description, Category, Tag, Source, Amazon #
     Sign logic:     Same as chase (negate input Amount)
     Tag:            Set to Type value (Sale, Return, Payment)
     Description:    Simplified to "Amazon" unless Type is Payment, or description
@@ -45,9 +41,11 @@ Supported formats are auto-detected by their column headers:
 
   penfed (PenFed credit card):
     Input columns:  Date, Description, Amount
-    Output columns: Date, Amount, Description, Category, Tag, Source
     Sign logic:     Input Amount is already signed (purchases negative, payments positive);
                     negate to get output convention (purchases positive, payments negative)
+
+Output columns for all formats: Date, Amount, Description, Category, Tag, Source
+  (plus Amazon # for amazon format)
 """
 
 import csv
@@ -68,7 +66,7 @@ RAW_DIR = os.path.join(SCRIPT_DIR, "data", "transactions", "raw")
 SANITIZED_DIR = os.path.join(RAW_DIR, "sanitized")
 OUT_DIR = os.path.join(SCRIPT_DIR, "data", "transactions")
 
-MONTH_PATTERN = re.compile(r"\d{4}_\d{2}")
+MONTH_PATTERN = re.compile(r"(?<!\d)\d{4}_(?:0[1-9]|1[0-2])(?!\d)")
 
 BASE_COLS = ["Date", "Amount", "Description", "Category", "Tag", "Source"]
 DROP_COLS = {"Debit", "Credit", "Type", "Credit Debit Indicator"}
@@ -125,8 +123,10 @@ def transform_atlanticunion(rows, source):
         credit = row["Credit"].strip()
         if debit:
             amount = float(debit)       # Debit = positive (money out)
-        else:
+        elif credit:
             amount = -float(credit)     # Credit = negative (money in)
+        else:
+            continue                    # Skip rows with no amount
         out_rows.append({
             "Date": fmt_date(row["Post Date"]),
             "Amount": amount,
@@ -194,8 +194,7 @@ def transform_penfed(rows, source):
             "Tag": "",
             "Source": source,
         })
-    fieldnames = BASE_COLS[:]
-    return out_rows, fieldnames
+    return out_rows, BASE_COLS
 
 
 def get_month_key(filename):
@@ -225,6 +224,8 @@ def process_file(input_path):
         return transform_amazon(rows, source)
     elif fmt == "penfed":
         return transform_penfed(rows, source)
+    else:
+        raise ValueError(f"No transform function for format: {fmt}")
 
 
 def write_monthly(month_key, all_rows, extra_cols):
@@ -246,6 +247,7 @@ def write_monthly(month_key, all_rows, extra_cols):
 
 def main():
     os.makedirs(SANITIZED_DIR, exist_ok=True)
+    os.makedirs(OUT_DIR, exist_ok=True)
 
     raw_files = sorted(
         f for f in os.listdir(RAW_DIR)
