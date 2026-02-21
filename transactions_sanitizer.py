@@ -53,6 +53,7 @@ import os
 import re
 import shutil
 import sys
+from collections import defaultdict
 from datetime import datetime
 
 
@@ -65,6 +66,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RAW_DIR = os.path.join(SCRIPT_DIR, "data", "transactions", "raw")
 SANITIZED_DIR = os.path.join(RAW_DIR, "sanitized")
 OUT_DIR = os.path.join(SCRIPT_DIR, "data", "transactions")
+AMAZON_DIR = os.path.join(SCRIPT_DIR, "data", "transactions", "amazon")
+AMAZON_MATCH_TOLERANCE = 0.01
+AMAZON_MATCH_DAY_WINDOW = 7
 
 MONTH_PATTERN = re.compile(r"(?<!\d)\d{4}_(?:0[1-9]|1[0-2])(?!\d)")
 
@@ -197,6 +201,115 @@ def transform_penfed(rows, source):
     return out_rows, BASE_COLS
 
 
+def load_amazon_lookups():
+    """Build a list of {order_id, date, amount, desc} from the amazon lookup files."""
+    lookups = []
+
+    # Order_History: group rows by (order_id, ship_date, subtotal) -> unique shipment charge
+    order_path = os.path.join(AMAZON_DIR, "Order_History.csv")
+    if os.path.isfile(order_path):
+        shipments = defaultdict(list)
+        with open(order_path, newline="", encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                if row.get("Ship Date", "Not Applicable") == "Not Applicable":
+                    continue
+                try:
+                    float(row["Shipment Item Subtotal"])
+                except (ValueError, KeyError):
+                    continue
+                key = (row["Order ID"], row["Ship Date"][:10], row["Shipment Item Subtotal"])
+                shipments[key].append(row)
+        for (order_id, ship_date_str, subtotal), items in shipments.items():
+            try:
+                date = datetime.strptime(ship_date_str, "%Y-%m-%d")
+                amount = round(float(subtotal) + float(items[0].get("Shipment Item Subtotal Tax") or 0), 2)
+            except (ValueError, KeyError):
+                continue
+            names = [i["Product Name"].strip()[:60] for i in items if i.get("Product Name")]
+            lookups.append({"order_id": order_id, "date": date, "amount": amount,
+                            "desc": " + ".join(names) or None})
+
+    # Digital_Content_Orders: group Price Amount rows by (order_id, order_date), add Tax rows
+    digital_path = os.path.join(AMAZON_DIR, "Digital_Content_Orders.csv")
+    if os.path.isfile(digital_path):
+        price_rows = defaultdict(list)
+        tax_totals = defaultdict(float)
+        with open(digital_path, newline="", encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                key = (row["Order ID"], row["Order Date"][:10])
+                try:
+                    amt = float(row["Transaction Amount"])
+                except (ValueError, KeyError):
+                    continue
+                if row.get("Component Type") == "Tax":
+                    tax_totals[key] += amt
+                else:
+                    price_rows[key].append(row)
+        for (order_id, date_str), items in price_rows.items():
+            try:
+                date = datetime.strptime(date_str, "%Y-%m-%d")
+                amount = round(sum(float(i["Transaction Amount"]) for i in items)
+                               + tax_totals.get((order_id, date_str), 0.0), 2)
+            except (ValueError, KeyError):
+                continue
+            names = list(dict.fromkeys(i["Product Name"].strip()[:60] for i in items if i.get("Product Name")))
+            lookups.append({"order_id": order_id, "date": date, "amount": amount,
+                            "desc": " + ".join(names) or None})
+
+    # Refund_Details: deduplicate by (order_id, date, amount); no product name available
+    refund_path = os.path.join(AMAZON_DIR, "Refund_Details.csv")
+    if os.path.isfile(refund_path):
+        seen = set()
+        with open(refund_path, newline="", encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                try:
+                    date = datetime.strptime(row["Refund Date"][:10], "%Y-%m-%d")
+                    amount = round(float(row["Refund Amount"]), 2)
+                except (ValueError, KeyError):
+                    continue
+                key = (row["Order ID"], row["Refund Date"][:10], amount)
+                if key in seen:
+                    continue
+                seen.add(key)
+                lookups.append({"order_id": row["Order ID"], "date": date,
+                                "amount": amount, "desc": None})
+
+    return lookups
+
+
+def enrich_amazon_rows(all_rows):
+    """Fill Amazon # (and Description if available) for matched amazon Sale/Return rows."""
+    if not os.path.isdir(AMAZON_DIR):
+        return
+    lookups = load_amazon_lookups()
+    if not lookups:
+        return
+    claimed = set()
+    for row in all_rows:
+        if row.get("Source") != "amazon" or row.get("Tag") not in ("Sale", "Return"):
+            continue
+        if row.get("Amazon #", "").strip():
+            continue
+        try:
+            txn_date = parse_date(row["Date"])
+            txn_amt = abs(float(row["Amount"]))
+        except (ValueError, KeyError):
+            continue
+        candidates = [
+            (abs((lkp["date"] - txn_date).days), idx, lkp)
+            for idx, lkp in enumerate(lookups)
+            if idx not in claimed and abs(lkp["amount"] - txn_amt) <= AMAZON_MATCH_TOLERANCE
+            and abs((lkp["date"] - txn_date).days) <= AMAZON_MATCH_DAY_WINDOW
+        ]
+        if not candidates:
+            continue
+        _, best_idx, best = min(candidates)
+        claimed.add(best_idx)
+        row["Amazon #"] = best["order_id"]
+        if best["desc"] is not None:
+            row["Description"] = best["desc"]
+
+
 def get_month_key(filename):
     m = MONTH_PATTERN.search(filename)
     if not m:
@@ -232,6 +345,7 @@ def write_monthly(month_key, all_rows, extra_cols):
     """Write combined monthly CSV sorted by date."""
     output_path = os.path.join(OUT_DIR, f"{month_key}.csv")
     fieldnames = BASE_COLS + extra_cols
+    enrich_amazon_rows(all_rows)
     all_rows.sort(key=lambda r: r["Date"])
 
     with open(output_path, newline="", mode="w", encoding="utf-8") as f:
