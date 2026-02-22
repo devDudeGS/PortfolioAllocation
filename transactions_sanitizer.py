@@ -53,6 +53,7 @@ import os
 import re
 import shutil
 import sys
+import json
 from collections import defaultdict
 from datetime import datetime
 
@@ -67,6 +68,7 @@ RAW_DIR = os.path.join(SCRIPT_DIR, "data", "transactions", "raw")
 SANITIZED_DIR = os.path.join(RAW_DIR, "sanitized")
 OUT_DIR = os.path.join(SCRIPT_DIR, "data", "transactions")
 AMAZON_DIR = os.path.join(SCRIPT_DIR, "data", "transactions", "amazon")
+RULES_PATH = os.path.join(SCRIPT_DIR, "data", "transactions", "rules.json")
 AMAZON_MATCH_TOLERANCE = 0.01
 AMAZON_MATCH_DAY_WINDOW = 7
 
@@ -310,6 +312,26 @@ def enrich_amazon_rows(all_rows):
             row["Description"] = best["desc"]
 
 
+def load_rules():
+    if not os.path.isfile(RULES_PATH):
+        return []
+    with open(RULES_PATH, encoding="utf-8") as f:
+        return json.load(f)["rules"]
+
+
+def apply_rules(row, rules):
+    for rule in rules:
+        if not row["Description"].lower().startswith(rule["description"].lower()):
+            continue
+        if "amount" in rule and abs(float(row["Amount"]) - rule["amount"]) > 0.01:
+            continue
+        if "source" in rule and row["Source"] != rule["source"]:
+            continue
+        row["Category"] = rule["category"]
+        row["Tag"] = rule["tag"]
+        return
+
+
 def get_month_key(filename):
     m = MONTH_PATTERN.search(filename)
     if not m:
@@ -317,7 +339,7 @@ def get_month_key(filename):
     return m.group()
 
 
-def process_file(input_path):
+def process_file(input_path, rules):
     """Process a single input CSV, returning (out_rows, fieldnames)."""
     basename = os.path.basename(input_path)
     source = basename.split("-")[0]
@@ -328,17 +350,22 @@ def process_file(input_path):
         fmt = detect_format(reader.fieldnames, source)
 
     if fmt == "navyfed":
-        return transform_navyfed(rows, source)
+        out_rows, fieldnames = transform_navyfed(rows, source)
     elif fmt == "atlanticunion":
-        return transform_atlanticunion(rows, source)
+        out_rows, fieldnames = transform_atlanticunion(rows, source)
     elif fmt == "chase":
-        return transform_chase(rows, source)
+        out_rows, fieldnames = transform_chase(rows, source)
     elif fmt == "amazon":
-        return transform_amazon(rows, source)
+        out_rows, fieldnames = transform_amazon(rows, source)
     elif fmt == "penfed":
-        return transform_penfed(rows, source)
+        out_rows, fieldnames = transform_penfed(rows, source)
     else:
         raise ValueError(f"No transform function for format: {fmt}")
+
+    for row in out_rows:
+        apply_rules(row, rules)
+
+    return out_rows, fieldnames
 
 
 def write_monthly(month_key, all_rows, extra_cols):
@@ -363,6 +390,8 @@ def main():
     os.makedirs(SANITIZED_DIR, exist_ok=True)
     os.makedirs(OUT_DIR, exist_ok=True)
 
+    rules = load_rules()
+
     raw_files = sorted(
         f for f in os.listdir(RAW_DIR)
         if f.endswith(".csv") and os.path.isfile(os.path.join(RAW_DIR, f))
@@ -380,7 +409,7 @@ def main():
         input_path = os.path.join(RAW_DIR, filename)
         try:
             month_key = get_month_key(filename)
-            out_rows, fieldnames = process_file(input_path)
+            out_rows, fieldnames = process_file(input_path, rules)
         except Exception as e:
             print(f"Error processing {filename}: {e}", file=sys.stderr)
             continue
