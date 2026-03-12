@@ -369,8 +369,23 @@ def process_file(input_path, rules):
 
 
 def write_monthly(month_key, all_rows, extra_cols):
-    """Write combined monthly CSV sorted by date."""
+    """Write combined monthly CSV sorted by date, merging with any existing output."""
     output_path = os.path.join(OUT_DIR, f"{month_key}.csv")
+
+    # Merge with existing output so re-runs don't silently drop previously processed data
+    if os.path.isfile(output_path):
+        with open(output_path, newline="", encoding="utf-8") as f:
+            existing = list(csv.DictReader(f))
+        new_keys = {(r["Date"], r["Amount"] if isinstance(r["Amount"], str) else f"{r['Amount']:.2f}", r["Description"], r["Source"]) for r in all_rows}
+        for row in existing:
+            key = (row["Date"], row["Amount"], row["Description"], row["Source"])
+            if key not in new_keys:
+                all_rows.append(row)
+                new_keys.add(key)
+        for col in existing[0].keys() if existing else []:
+            if col not in BASE_COLS and col not in DROP_COLS and col not in extra_cols:
+                extra_cols.append(col)
+
     fieldnames = BASE_COLS + extra_cols
     enrich_amazon_rows(all_rows)
     all_rows.sort(key=lambda r: r["Date"])
