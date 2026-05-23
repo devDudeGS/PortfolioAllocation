@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass, field
+import os
 import numpy as np
 from numpy.typing import NDArray
 
@@ -21,7 +22,7 @@ from numpy.typing import NDArray
 #   The <person> suffix generates labels (e.g. ira_g -> "G's IRA").
 #   IRAs are allocated in the order their price columns appear in the header.
 
-DATA_FILE = "data/RetirementData.csv"
+DATA_FILE = os.path.join(os.path.dirname(__file__), "data", "RetirementData.csv")
 
 
 @dataclass
